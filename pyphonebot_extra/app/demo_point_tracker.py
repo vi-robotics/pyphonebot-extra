@@ -21,8 +21,8 @@ from phonebot.core.frame_graph.graph_utils import (
     get_joint_edges)
 from phonebot.core.controls.agents.point_tracker_agent import PointTrackerAgent
 
-from phonebot.vis.viewer import PhonebotViewer
-from phonebot.vis.viewer.proxy_commands import AddPointsCommand, AddLinesCommand
+from pyphonebot_extra.vis.viewer import PhonebotViewer
+from pyphonebot_extra.vis.viewer.proxy_commands import AddPointsCommand, AddLinesCommand
 from phonebot.core.common.logger import get_default_logger
 logger = get_default_logger(logging.WARN)
 

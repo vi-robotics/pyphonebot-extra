@@ -10,9 +10,9 @@ from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph.graph_utils import solve_inverse_kinematics, solve_knee_angle, get_graph_geometries
 from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.kinematics.workspace import get_workspace, max_rect
-from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
-from phonebot.vis.viewer.proxy_command import ProxyCommand
-from phonebot.vis.viewer.proxy_commands import AddPointsCommand
+from pyphonebot_extra.vis.viewer.phonebot_viewer import PhonebotViewer
+from pyphonebot_extra.vis.viewer.proxy_command import ProxyCommand
+from pyphonebot_extra.vis.viewer.proxy_commands import AddPointsCommand
 from phonebot.core.common.math.transform import Position
 
 
