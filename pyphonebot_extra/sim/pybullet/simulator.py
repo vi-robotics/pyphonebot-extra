@@ -813,33 +813,33 @@ class PybulletPhonebotEnv(gym.Env):
 
 register(
     id='phonebot-pybullet-v0',
-    entry_point='phonebot.sim.pybullet.simulator:PybulletPhonebotEnv',
+    entry_point='pyphonebot_extra.sim.pybullet.simulator:PybulletPhonebotEnv',
     kwargs={'sim_settings': None, 'phonebot_settings': None}
 )
 
 register(
     id='phonebot-pybullet-realtime-v0',
-    entry_point='phonebot.sim.pybullet.simulator:PybulletPhonebotEnv',
+    entry_point='pyphonebot_extra.sim.pybullet.simulator:PybulletPhonebotEnv',
     kwargs={'sim_settings': PybulletSimulatorSettings(
         realtime=True), 'phonebot_settings': None}
 )
 
 register(
     id='phonebot-pybullet-headless-v0',
-    entry_point='phonebot.sim.pybullet.simulator:PybulletPhonebotEnv',
+    entry_point='pyphonebot_extra.sim.pybullet.simulator:PybulletPhonebotEnv',
     kwargs={'sim_settings': PybulletSimulatorSettings(
         render=False), 'phonebot_settings': None}
 )
 
 # NOTE(ycho): Disabling subprocessing proxy until better package stucture is found
-#from phonebot.sim.common.subproc import subproc
+#from pyphonebot_extra.sim.common.subproc import subproc
 #@subproc
 #class PybulletPhonebotSubprocEnv(PybulletPhonebotEnv):
 #    pass
 #
 #register(
 #    id='phonebot-pybullet-headless-subproc-v0',
-#    entry_point='phonebot.sim.pybullet.simulator:PybulletPhonebotSubprocEnv',
+#    entry_point='pyphonebot_extra.sim.pybullet.simulator:PybulletPhonebotSubprocEnv',
 #    kwargs={'sim_settings': PybulletSimulatorSettings(
 #        render=False), 'phonebot_settings': None}
 #)

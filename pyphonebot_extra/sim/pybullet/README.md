@@ -2,7 +2,7 @@
 
 Phonebot simulation implementation with pybullet backend.
 
-For interfacing with `gym.Env` (and `gym.make()`), requires `register()` to be invoked, which is handled by the import (i.e. `from phonebot.sim.pybullet.simulator import PybulletPhonebotEnv`).
+For interfacing with `gym.Env` (and `gym.make()`), requires `register()` to be invoked, which is handled by the import (i.e. `from pyphonebot_extra.sim.pybullet.simulator import PybulletPhonebotEnv`).
 
 ## Running
 

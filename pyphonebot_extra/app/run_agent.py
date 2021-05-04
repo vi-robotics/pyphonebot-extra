@@ -23,10 +23,10 @@ from phonebot.core.controls.agents.keyboard_agent.keyboard_agent import Keyboard
 from phonebot.core.controls.agents.keyboard_agent.joint_keyboard_agent import JointKeyboardAgent, JointKeyboardAgentSettings
 from phonebot.core.controls.agents.keyboard_agent.ellipse_keyboard_agent import EllipseKeyboardAgent, EllipseKeyboardAgentSettings
 
-from phonebot.sim.pybullet.builder import PybulletBuilder
-from phonebot.sim.pybullet.simulator import PybulletPhonebotEnv, PybulletSimulatorSettings
+from pyphonebot_extra.sim.pybullet.builder import PybulletBuilder
+from pyphonebot_extra.sim.pybullet.simulator import PybulletPhonebotEnv, PybulletSimulatorSettings
 
-from phonebot.app.app_utils import update_settings_from_arguments
+from pyphonebot_extra.app.app_utils import update_settings_from_arguments
 
 logger = get_default_logger()
 
