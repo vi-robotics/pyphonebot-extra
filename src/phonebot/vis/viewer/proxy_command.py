@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 
-from pyphonebot_extra.vis.viewer import Viewer
+from phonebot.vis.viewer import Viewer
 
 
 class ProxyCommand(ABC):

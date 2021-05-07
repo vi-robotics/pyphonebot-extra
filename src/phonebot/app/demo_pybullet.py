@@ -14,17 +14,17 @@ from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph import get_graph_geometries
 from phonebot.core.frame_graph.graph_utils import update_passive_joints
-from pyphonebot_extra.vis.viewer import PhonebotViewer
-from pyphonebot_extra.vis.viewer.proxy_commands import AddLineStripCommand
+from phonebot.vis.viewer import PhonebotViewer
+from phonebot.vis.viewer.proxy_commands import AddLineStripCommand
 
-from pyphonebot_extra.sim.common.model import *
-from pyphonebot_extra.sim.common.phonebot_model import PhonebotModel
-from pyphonebot_extra.sim.pybullet.urdf_editor import export_urdf
-from pyphonebot_extra.sim.pybullet.builder import PybulletBuilder
-from pyphonebot_extra.sim.pybullet.simulator import PybulletPhonebotEnv, PybulletSimulatorSettings
+from phonebot.sim.common.model import *
+from phonebot.sim.common.phonebot_model import PhonebotModel
+from phonebot.sim.pybullet.urdf_editor import export_urdf
+from phonebot.sim.pybullet.builder import PybulletBuilder
+from phonebot.sim.pybullet.simulator import PybulletPhonebotEnv, PybulletSimulatorSettings
 
 from phonebot.core.controls.agents.trajectory_agent import TrajectoryAgentGraph
-from pyphonebot_extra.app.app_utils import update_settings_from_arguments
+from phonebot.app.app_utils import update_settings_from_arguments
 
 
 class AppSettings(Settings):

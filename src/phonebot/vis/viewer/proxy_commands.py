@@ -7,9 +7,9 @@ import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 
-from pyphonebot_extra.vis import primitives
-from pyphonebot_extra.vis.viewer.proxy_viewer import ProxyViewer
-from pyphonebot_extra.vis.viewer.proxy_command import ProxyCommand
+from phonebot.vis import primitives
+from phonebot.vis.viewer.proxy_viewer import ProxyViewer
+from phonebot.vis.viewer.proxy_command import ProxyCommand
 
 
 class AddPlotCommand(ProxyCommand):

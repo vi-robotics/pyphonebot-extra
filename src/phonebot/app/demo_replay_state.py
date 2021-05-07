@@ -12,8 +12,8 @@ from phonebot.core.common.config import PhonebotSettings, FrameName
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph.graph_utils import get_graph_geometries
 
-from pyphonebot_extra.vis.viewer import PhonebotViewer
-from pyphonebot_extra.vis.viewer.proxy_commands import AddPointsCommand, AddLinesCommand
+from phonebot.vis.viewer import PhonebotViewer
+from phonebot.vis.viewer.proxy_commands import AddPointsCommand, AddLinesCommand
 
 
 def main():

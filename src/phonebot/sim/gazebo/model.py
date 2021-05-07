@@ -26,9 +26,9 @@ from phonebot.core.frame_graph.frame_edges import StaticFrameEdge
 from phonebot.core.frame_graph.frame_graph import FrameGraph
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph import get_graph_geometries, FrameGraph
-from pyphonebot_extra.vis.viewer import PhonebotViewer
-from pyphonebot_extra.vis.viewer.proxy_command import ProxyCommand
-from pyphonebot_extra.vis.viewer.proxy_commands import AddLineStripCommand
+from phonebot.vis.viewer import PhonebotViewer
+from phonebot.vis.viewer.proxy_command import ProxyCommand
+from phonebot.vis.viewer.proxy_commands import AddLineStripCommand
 from sim.common.model import *
 
 

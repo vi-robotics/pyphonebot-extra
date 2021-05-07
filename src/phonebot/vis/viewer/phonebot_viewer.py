@@ -6,8 +6,8 @@ import numpy as np
 import pyqtgraph.opengl as gl
 
 from phonebot.core.common.logger import get_default_logger
-from pyphonebot_extra.vis import primitives
-from pyphonebot_extra.vis.viewer import ProxyViewer
+from phonebot.vis import primitives
+from phonebot.vis.viewer import ProxyViewer
 from phonebot.core.common.math.transform import Position, Rotation, Transform
 from phonebot.core.frame_graph import FrameGraph, StaticFrameEdge, SimpleFrameEdge, RevoluteJointEdge
 from phonebot.core.frame_graph import get_graph_geometries

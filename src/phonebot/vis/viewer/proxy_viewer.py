@@ -9,8 +9,8 @@ from pyqtgraph.Qt import QtGui, QtCore
 
 from phonebot.core.common.logger import get_default_logger
 from phonebot.core.common.queue_listener import QueueListener
-from pyphonebot_extra.vis.viewer import Viewer, PrimitiveViewer
-from pyphonebot_extra.vis.viewer.proxy_command import ProxyCommand
+from phonebot.vis.viewer import Viewer, PrimitiveViewer
+from phonebot.vis.viewer.proxy_command import ProxyCommand
 
 from threading import Thread
 from multiprocessing import Process, Manager, Queue

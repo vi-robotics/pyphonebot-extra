@@ -8,7 +8,7 @@ from typing import List, Tuple
 from dataclasses import dataclass
 import gym
 
-from pyphonebot_extra.sim.pybullet.sensor import PybulletPhonebotSensor
+from phonebot.sim.pybullet.sensor import PybulletPhonebotSensor
 from phonebot.core.common.logger import get_default_logger
 from phonebot.core.common.math.utils import anorm
 

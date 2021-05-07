@@ -5,7 +5,7 @@ import numpy as np
 
 from phonebot.core.common.math.utils import anorm
 from phonebot.core.common.config import PhonebotSettings
-from pyphonebot_extra.vis.viewer import PhonebotViewer
+from phonebot.vis.viewer import PhonebotViewer
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph.graph_utils import solve_knee_angle, solve_inverse_kinematics, get_graph_geometries
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pyphonebot_extra.vis import primitives
+from phonebot.vis import primitives
 from phonebot.core.frame_graph import FrameGraph
 from phonebot.core.frame_graph import get_graph_geometries
 

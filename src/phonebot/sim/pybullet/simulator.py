@@ -15,13 +15,13 @@ from phonebot.core.common.settings import Settings
 from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.common.math.utils import anorm
 from phonebot.core.controls.pid import PID, PIDSettings
-from pyphonebot_extra.sim.common.phonebot_model import PhonebotModel
-from pyphonebot_extra.sim.pybullet.builder import PybulletBuilder
-from pyphonebot_extra.sim.pybullet.debug_utils import (
+from phonebot.sim.common.phonebot_model import PhonebotModel
+from phonebot.sim.pybullet.builder import PybulletBuilder
+from phonebot.sim.pybullet.debug_utils import (
     debug_draw_inertia_box, debug_draw_frame_axes, debug_get_full_aabb
 )
-from pyphonebot_extra.sim.pybullet.sensor import PybulletPhonebotSensor
-from pyphonebot_extra.sim.pybullet.task import (
+from phonebot.sim.pybullet.sensor import PybulletPhonebotSensor
+from phonebot.sim.pybullet.task import (
     ForwardVelocityTask, ForwardVelocityTaskSettings,
     HoldVelocityTask,
     ReachPositionTask, ReachPositionTaskSettings,
@@ -813,33 +813,33 @@ class PybulletPhonebotEnv(gym.Env):
 
 register(
     id='phonebot-pybullet-v0',
-    entry_point='pyphonebot_extra.sim.pybullet.simulator:PybulletPhonebotEnv',
+    entry_point='phonebot.sim.pybullet.simulator:PybulletPhonebotEnv',
     kwargs={'sim_settings': None, 'phonebot_settings': None}
 )
 
 register(
     id='phonebot-pybullet-realtime-v0',
-    entry_point='pyphonebot_extra.sim.pybullet.simulator:PybulletPhonebotEnv',
+    entry_point='phonebot.sim.pybullet.simulator:PybulletPhonebotEnv',
     kwargs={'sim_settings': PybulletSimulatorSettings(
         realtime=True), 'phonebot_settings': None}
 )
 
 register(
     id='phonebot-pybullet-headless-v0',
-    entry_point='pyphonebot_extra.sim.pybullet.simulator:PybulletPhonebotEnv',
+    entry_point='phonebot.sim.pybullet.simulator:PybulletPhonebotEnv',
     kwargs={'sim_settings': PybulletSimulatorSettings(
         render=False), 'phonebot_settings': None}
 )
 
 # NOTE(ycho): Disabling subprocessing proxy until better package stucture is found
-#from pyphonebot_extra.sim.common.subproc import subproc
+#from phonebot.sim.common.subproc import subproc
 #@subproc
 #class PybulletPhonebotSubprocEnv(PybulletPhonebotEnv):
 #    pass
 #
 #register(
 #    id='phonebot-pybullet-headless-subproc-v0',
-#    entry_point='pyphonebot_extra.sim.pybullet.simulator:PybulletPhonebotSubprocEnv',
+#    entry_point='phonebot.sim.pybullet.simulator:PybulletPhonebotSubprocEnv',
 #    kwargs={'sim_settings': PybulletSimulatorSettings(
 #        render=False), 'phonebot_settings': None}
 #)

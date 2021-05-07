@@ -17,9 +17,9 @@ from phonebot.core.common.math.utils import anorm, alerp
 from phonebot.core.common.math.transform import Rotation, Position, Transform
 from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.common.queue_listener import QueueListener
-from pyphonebot_extra.vis.viewer import PhonebotViewer
-from pyphonebot_extra.vis.viewer.proxy_command import ProxyCommand
-from pyphonebot_extra.vis.viewer.proxy_commands import AddLineStripCommand
+from phonebot.vis.viewer import PhonebotViewer
+from phonebot.vis.viewer.proxy_command import ProxyCommand
+from phonebot.vis.viewer.proxy_commands import AddLineStripCommand
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph.graph_utils import get_graph_geometries, solve_knee_angle, solve_inverse_kinematics
 from phonebot.core.kinematics.workspace import get_workspace

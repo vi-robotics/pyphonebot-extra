@@ -32,10 +32,10 @@ from phonebot.core.kinematics.workspace import get_workspace, max_rect
 from phonebot.core.controls.agents.trajectory_agent import TrajectoryAgentGraph
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 
-from pyphonebot_extra.sim.pybullet.simulator import PybulletPhonebotEnv, PybulletSimulatorSettings
-from pyphonebot_extra.app.cyclic_trajectory_gui import run_gui, AppSettings as CyclicTrajectoryGuiSettings
+from phonebot.sim.pybullet.simulator import PybulletPhonebotEnv, PybulletSimulatorSettings
+from phonebot.app.cyclic_trajectory_gui import run_gui, AppSettings as CyclicTrajectoryGuiSettings
 
-from pyphonebot_extra.app.app_utils import update_settings_from_arguments
+from phonebot.app.app_utils import update_settings_from_arguments
 
 
 class InitPolicy(Enum):

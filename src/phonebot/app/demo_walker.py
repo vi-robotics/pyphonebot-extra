@@ -16,10 +16,10 @@ from phonebot.core.controls.controllers.base_rotation_controller import BaseRota
 from phonebot.core.controls.agents.trajectory_agent import TrajectoryAgentGraph
 from phonebot.core.common.logger import set_log_level, get_default_logger
 
-from pyphonebot_extra.vis.viewer import PhonebotViewer
-from pyphonebot_extra.vis.viewer.proxy_commands import AddLineStripCommand
+from phonebot.vis.viewer import PhonebotViewer
+from phonebot.vis.viewer.proxy_commands import AddLineStripCommand
 
-from pyphonebot_extra.app.app_utils import update_settings_from_arguments
+from phonebot.app.app_utils import update_settings_from_arguments
 
 
 class AppSettings(Settings):

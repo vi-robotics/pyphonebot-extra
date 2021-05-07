@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.common.math.transform import Transform, Rotation, Position
-from pyphonebot_extra.sim.common.model import *
+from phonebot.sim.common.model import *
 
 
 class PhonebotModel(object):
