@@ -13,13 +13,10 @@ from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph.graph_utils import get_graph_geometries
 from phonebot.core.common.comm.client import SimpleClient
 
-from phonebot.vis.viewer import PhonebotViewer
-from phonebot.vis.viewer.proxy_commands import AddPointsCommand, AddLinesCommand
-
 
 def main():
     client = SimpleClient()
-    pattern = 'state-' + '[0-9]'*4 + '.txt'
+    pattern = 'state-' + '[0-9]' * 4 + '.txt'
     files = list(Path('/tmp/phonebot-phone').glob(pattern))
     for filename in sorted(files):
         with open(filename, 'rb') as f:

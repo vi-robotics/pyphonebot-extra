@@ -12,95 +12,110 @@ from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph.graph_utils import solve_inverse_kinematics, solve_knee_angle, get_graph_geometries
 from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.common.math.transform import Position
+from phonebot.vis.viewer._pyqtgraph import PyqtViewer3D, PointsHandler
 from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
-from phonebot.vis.viewer.proxy_command import ProxyCommand
-from phonebot.vis.viewer.proxy_commands import AddPointsCommand
+from phonebot.vis.viewer.viewer_base import HandleHelper
 
 
-class PickableViewer(PhonebotViewer):
-    """A PickableViewer handles click and drag events from a PhonebotViewer
-    """
 
-    def __init__(self, *args, **kwargs):
+class PickHandler:
+    def __init__(self, viewer: PyqtViewer3D, pick_radius: float = 5.0):
+        self.viewer = viewer
+        self.pick_radius = pick_radius
+        self.vertices = None
         self.select_index = None
-        self.mx = 0
-        self.my = 0
-        self.pxs = 1.0
-        super().__init__(*args, **kwargs)
+        # Register mouse event callback.
+        self.viewer.on_mouse(self.on_mouse)
 
-    def on_mouse(self, event: QtCore.pyqtSignal, event_type: str):
-        """Handle a mouse event, including click, drag and release.
+    @property
+    def widget(self):
+        return self.viewer.widget_
 
-        Args:
-            event (QtCore.pyqtSignal): The pyqtSignal event instance.
-            event_type (str): The type of event which is signaled. Can be
-                'press', 'move', or 'release'
-        """
+    def _on_press(self, data):
+        _, button, x, y = data
+        # FIXME(ycho): should probably be replaced with MouseEvent(...)
+        if button != 2:
+            return
+        screen_xy = (x, y)
+        self.mx = x
+        self.my = y
+
+        # Project all items to screen space.
+        P = pg.transformToArray(
+            self.widget.projectionMatrix() *
+            self.widget.viewMatrix())
+        p = (self.vertices @ P[:3, :3].T + P[:3, 3:].T)
+        p = (p[:, :2] / p[:, 2:])
+        p = (p + 1.0) / 2.0
+        # FIXME(ycho): Flip Y axis for some reason?
+        p[:, 1] = 1.0 - p[:, 1]
+        px, py = (self.widget.width() * p[:, 0],
+                  self.widget.height() * p[:, 1])
+
+        # Select nearest pixel-space neighbor.
+        delta = np.linalg.norm(np.stack([px, py], axis=-1) - screen_xy,
+                               axis=-1)
+        sel = np.argmin(delta)
+
+        # Apply threshold, etc etc
+        if delta[sel] < self.pick_radius:
+            world_from_camera = pg.transformToArray(
+                self.widget.viewMatrix())
+            R = world_from_camera[:3, :3].T
+            xvec = R.dot([-1, 0, 0])
+            yvec = R.dot([0, -1, 0])
+
+            self.select_index = sel
+            pix_size = self.widget.pixelSize(self.vertices[self.select_index])
+            self.xvec = xvec * pix_size
+            self.yvec = yvec * pix_size
+            self.pold = self.vertices[self.select_index].copy()
+
+            self.viewer.trigger('pick', (sel, self.pold, self.pold))
+
+    def _on_move(self, data):
+        if self.select_index is None:
+            return
+
+        _, _, x, y = data
+        mx, my = (x, y)  # maybe ?
+
+        dx = (-(mx - self.mx) * self.xvec)
+        dy = ((my - self.my) * self.yvec)
+        pold = self.pold
+        pnew = self.pold + dx + dy
+        # TODO(ycho): figure out why `pold`, etc, should not be updated
+        # self.pold = pnew
+        self.viewer.trigger('pick', (self.select_index, pold, pnew))
+
+    def _on_release(self, data):
+        self.select_index = None
+
+
+    def on_mouse(self, data):
+        # Only process pick-related events if vertices are registered.
+        if self.vertices is None:
+            return
+
+        # Unpack data.
+        event_type, button, x, y = data
+
         if event_type == 'press':
-            self.select_index = None
-            if event.button() not in [QtCore.Qt.RightButton]:
-                return
-
-            # Project all items to screen space.
-            pos3d = self.items_['foot_ctrl'].pos
-            P = pg.transformToArray(self.widget_.projectionMatrix() * self.widget_.viewMatrix())
-            p = (pos3d @ P[:3, :3].T + P[:3, 3:].T)
-            p = (p[:, :2] / p[:, 2:])
-            p = (p + 1.0) / 2.0
-            p[:, 1] = 1.0 - p[:, 1]
-            px, py = self.widget_.width() * p[:, 0], self.widget_.height() * p[:, 1],
-
-            # Project cursor position.
-            pos = self.widget_.mapFromGlobal(event.globalPos())
-            mx, my = pos.x(), pos.y()
-            self.mx = mx
-            self.my = my
-
-            delta = np.linalg.norm(np.stack([px, py], axis=-1) - (mx, my), axis=-1)
-            sel = np.argmin(delta)
-            if delta[sel] < 5.0:
-                world_from_camera = pg.transformToArray(self.widget_.viewMatrix())
-                R = world_from_camera[:3, :3].T
-                xvec = R.dot([-1, 0, 0])
-                yvec = R.dot([0, -1, 0])
-                # zvec = R.dot([0,0,1])
-
-                self.select_index = sel
-                px = self.widget_.pixelSize(self.items_['foot_ctrl'].pos[self.select_index])
-                self.xvec = xvec * px
-                self.yvec = yvec * px
-                self.pold = self.items_['foot_ctrl'].pos[self.select_index].copy()
+            return self._on_press(data)
         elif event_type == 'move':
-            if self.select_index is None:
-                return
-
-            pos = self.widget_.mapFromGlobal(event.globalPos())
-            mx, my = pos.x(), pos.y()
-
-            dx = (-(mx - self.mx) * self.xvec)
-            dy = ((my - self.my) * self.yvec)
-            pold = self.pold
-            pnew = self.pold + dx + dy
-            if not self.event_queue_.full():
-                self.event_queue_.put_nowait([self.select_index, pold, pnew])
+            return self._on_move(data)
         elif event_type == 'release':
-            self.select_index = None
+            return self._on_release(data)
+        else:
+            raise KeyError(F'event_type == {event_type} not found')
+
+    def __call__(self, vertices: np.ndarray = None):
+        # Update vertices.
+        self.vertices = vertices
 
 
-def update_angles(graph: PhonebotGraph,
-                  hip_angle_a: float,
-                  hip_angle_b: float,
-                  stamp: float,
-                  config: PhonebotSettings):
-    """Update the angles of the PhonebotGraph using 
-
-    Args:
-        graph (PhonebotGraph): The PhonebotGraph to update the angles of.
-        hip_angle_a (float): The angle to set for hip a.
-        hip_angle_b (float): The angle to set for hip b.
-        stamp (float): The time stamp (seconds).
-        config (PhonebotSettings): The PhonebotSettings object to use to get
-    """
+def update_angles(graph: PhonebotGraph, hip_angle_a: float,
+                  hip_angle_b: float, stamp: float, config: PhonebotSettings):
     # Initialize angles to 0.
     for leg_prefix in config.order:
         hip_joint_a = '{}_hip_joint_a'.format(leg_prefix)
@@ -118,7 +133,6 @@ def update_angles(graph: PhonebotGraph,
 
         knee_angle_a, knee_angle_b = solve_knee_angle(
             graph, leg_prefix, stamp, config)
-        print(f'knee angle : {knee_angle_a}')
 
         # Set knee
         graph.get_edge(foot_a, knee_joint_a).update(
@@ -128,41 +142,37 @@ def update_angles(graph: PhonebotGraph,
 
 
 def main():
-    global hip_angle_a
-    global hip_angle_b
     config = PhonebotSettings()
     config.queue_size = 1
     graph = PhonebotGraph(config)
-    data_queue, event_queue, command_queue = PickableViewer.create()
+    viewer = PhonebotViewer()
+    viewer.register('foot_ctrl', PointsHandler)
+    viewer.register('pick', PickHandler)
+    state = {'angles': [0, 0]}
 
-    command_queue.put(AddPointsCommand(name='foot_ctrl'))
-
-    def on_event(event):
-        global hip_angle_a
-        global hip_angle_b
+    def on_pick(topic, data):
         try:
-            idx, pold, pnew = event
+            idx, pold, pnew = data
             stamp = time.time()
             pnew[1] = pold[1]
-            leg_from_local = graph.get_transform('local', '{}_leg_origin'.format(config.order[idx]), stamp)
+            leg_from_local = graph.get_transform(
+                'local', '{}_leg_origin'.format(
+                    config.order[idx]), stamp)
             pnew_leg = leg_from_local * Position(pnew)
             ja, jb = solve_inverse_kinematics(
                 graph, stamp, config.order[idx],
                 pnew_leg, config)
-            hip_angle_a = ja
-            hip_angle_b = jb
-
+            state['angles'] = [ja, jb]
         except Exception as e:
             print(e)
 
-    mouse_listener = QueueListener(event_queue, on_event)
-    mouse_listener.start()
+    viewer.on_event('pick', on_pick)
+    handler = HandleHelper(viewer)
 
     # Arbitrary stamp.
     stamp = time.time()
-    hip_angle_a = config.nominal_hip_angle
-    hip_angle_b = config.nominal_hip_angle
-    update_angles(graph, hip_angle_a, hip_angle_b, stamp, config)
+    state['angles'] = [config.nominal_hip_angle, config.nominal_hip_angle]
+    update_angles(graph, state['angles'][0], state['angles'][1], stamp, config)
 
     colors = {
         'FL': (0, 0, 1, 1),
@@ -170,27 +180,22 @@ def main():
         'HL': (1, 0, 0, 1),
         'HR': (1, 0, 1, 1)
     }
-
-    # Sweep angles for both joints, run ik and visualize results.
-    # for hip_angle_a in np.linspace(0.0, 2*np.pi, 20):
-    #    for hip_angle_b in np.linspace(0.0, 2*np.pi, 20):
-
     while True:
         stamp = time.time()
-        update_angles(graph, hip_angle_a, hip_angle_b, stamp, config)
+        update_angles(graph, state['angles'][0], state['angles'][1],
+                      stamp, config)
 
         # Send data to asynchronous viewer.
         poses, edges = get_graph_geometries(graph, stamp, tol=np.inf)
         foot_pos = np.float32([poses['{}_foot_a'.format(
             prefix)].position for prefix in config.order])
         foot_col = np.float32([colors[prefix] for prefix in config.order])
-        if not data_queue.full():
-            data_queue.put_nowait(
-                {
-                    'poses': dict(poses=poses),
-                    'edges': dict(poses=poses, edges=edges),
-                    'foot_ctrl': dict(pos=foot_pos, color=foot_col)
-                })
+
+        with handler.collect():
+            handler.poses(poses=poses)
+            handler.edges(poses=poses, edges=edges)
+            handler.foot_ctrl(pos=foot_pos, color=foot_col)
+            handler.pick(foot_pos)
 
 
 if __name__ == '__main__':

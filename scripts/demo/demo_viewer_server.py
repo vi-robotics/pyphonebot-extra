@@ -13,15 +13,14 @@ from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph.graph_utils import get_graph_geometries
 from phonebot.core.common.comm.server import SimpleServer
 
-from phonebot.vis.viewer import PhonebotViewer
-from phonebot.vis.viewer.proxy_commands import AddPointsCommand, AddLinesCommand
+from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
+from phonebot.vis.viewer.viewer_base import HandleHelper
 
 
 class ViewerServer(object):
     def __init__(self, *args, **kwargs):
-        self.data_queue = None
-        self.event_queue = None
-        self.command_queue = None
+        self.viewer = None
+        self.handler = None
         self.server = SimpleServer(on_data=self.on_data, *args, **kwargs)
 
     def on_data(self, data: bytes):
@@ -32,7 +31,8 @@ class ViewerServer(object):
         self.update(graph, stamp)
 
     def start(self):
-        self.data_queue, self.event_queue, self.command_queue = PhonebotViewer.create()
+        self.viewer = PhonebotViewer()
+        self.handler = HandleHelper(self.viewer)
 
     def run(self):
         return self.server.run()
@@ -43,10 +43,9 @@ class ViewerServer(object):
         poses, edges = get_graph_geometries(
             graph, stamp, target_frame=FrameName.LOCAL, tol=np.inf)
 
-        if not self.data_queue.full():
-            visdata = {'poses': dict(poses=poses), 'edges':
-                       dict(poses=poses, edges=edges)}
-            self.data_queue.put_nowait(visdata)
+        with self.handler.collect():
+            self.handler.poses(poses=poses)
+            self.handler.edges(poses=poses, edges=edges)
 
 
 def main():

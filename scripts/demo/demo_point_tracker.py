@@ -21,14 +21,14 @@ from phonebot.core.frame_graph.graph_utils import (
     get_joint_edges)
 from phonebot.core.controls.agents.point_tracker_agent import PointTrackerAgent
 
-from phonebot.vis.viewer import PhonebotViewer
-from phonebot.vis.viewer.proxy_commands import AddPointsCommand, AddLinesCommand
+from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
+from phonebot.vis.viewer.viewer_base import HandleHelper
 from phonebot.core.common.logger import get_default_logger
 logger = get_default_logger(logging.WARN)
 
 
 def spawn_point() -> Position:
-    """ Generate a random point above the phonebot. """
+    """Generate a random point above the phonebot."""
     # NOTE(ycho): The magic numbers below have been tuned
     # to return valid solutions at close proximities.
     # Basically centers the point around the camera FOV.
@@ -39,7 +39,7 @@ def spawn_point() -> Position:
 
 def sense_point(graph: PhonebotGraph, point: Position,
                 stamp: float) -> Tuple[float, float]:
-    """ Sense the point angular deviation in the camera frame. """
+    """Sense the point angular deviation in the camera frame."""
     # Convert to camera frame
     xfm = graph.get_transform(FrameName.LOCAL, FrameName.CAMERA, stamp)
     point = xfm * point
@@ -49,15 +49,12 @@ def sense_point(graph: PhonebotGraph, point: Position,
 
 
 def generate_grid():
-    """Generate a saved list of commands which correspond to a given
-    set of angles.
-    """
+    """Generate a saved list of commands which correspond to a given set of
+    angles."""
+    # TODO(ycho): should be migrated to `tools`.
     # Boilerplate setup ...
     config = PhonebotSettings()
     graph = PhonebotGraph(config)
-    data_queue, event_queue, command_queue = PhonebotViewer.create()
-    command_queue.put(AddPointsCommand(name='points'))
-    command_queue.put(AddLinesCommand(name='lines'))
     stamp = 0.0
 
     # In the absence of information, initialize to nominal position.
@@ -115,9 +112,8 @@ def main():
     # Boilerplate setup ...
     config = PhonebotSettings()
     graph = PhonebotGraph(config)
-    data_queue, event_queue, command_queue = PhonebotViewer.create()
-    command_queue.put(AddPointsCommand(name='points'))
-    command_queue.put(AddLinesCommand(name='lines'))
+    viewer = PhonebotViewer()
+    handler = HandleHelper(viewer)
     stamp = 0.0
 
     # In the absence of information, initialize to nominal position.
@@ -174,13 +170,11 @@ def main():
             FrameName.CAMERA, FrameName.LOCAL, stamp).position
         poses, edges = get_graph_geometries(
             graph, stamp, target_frame=FrameName.LOCAL, tol=np.inf)
-        if not data_queue.full():
-            visdata = {'poses': dict(poses=poses), 'edges':
-                       dict(poses=poses, edges=edges),
-                       'points': dict(pos=np.float32([point])),
-                       'lines': dict(pos=np.float32([[point, cam_pos]]))
-                       }
-            data_queue.put_nowait(visdata)
+        with handler.collect():
+            handler.poses(poses=poses)
+            handler.edges(poses=poses, edges=edges)
+            handler.point(pos=np.float32([point]))
+            handler.line(pos=np.float32([[point, cam_pos]]))
 
 
 if __name__ == '__main__':
