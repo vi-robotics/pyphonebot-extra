@@ -21,9 +21,9 @@ class PybulletBuilder(object):
     """
 
     def __init__(self):
-        self.joint_map_ = {ModelJoint.REVOLUTE: pb.JOINT_REVOLUTE,
-                           ModelJoint.FIXED: pb.JOINT_FIXED,
-                           ModelJoint.PRISMATIC: pb.JOINT_PRISMATIC}
+        self.joint_map_ = {ModelJointType.REVOLUTE: pb.JOINT_REVOLUTE,
+                           ModelJointType.FIXED: pb.JOINT_FIXED,
+                           ModelJointType.PRISMATIC: pb.JOINT_PRISMATIC}
         # Bookkeeping for input
         self.links_ = []
         self.joints_ = []
@@ -331,7 +331,7 @@ class PybulletBuilder(object):
 
         # TODO(ycho): Enable after bullet3/PR#3238
         for i in range(len(masses)):
-           model['linkNames'][i] = self.link_from_index_[i]
+            model['linkNames'][i] = self.link_from_index_[i]
 
         # Actually create the model based on the temporary definition.
         robot = pb.createMultiBody(
