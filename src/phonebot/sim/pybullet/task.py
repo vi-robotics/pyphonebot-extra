@@ -15,45 +15,143 @@ from phonebot.core.common.math.utils import anorm
 logger = get_default_logger()
 
 
+class BaseTaskSettings(ABC):
+    """This should be a dataclass which contains appropriate settings data for
+    the given task.
+    """
+    pass
+
+
 class BaseTask(ABC):
+    """A BaseTask is an abstract class which defines a task for an RL agent
+    to be rewarded for. Each of the methods must be implemented to create
+    custom tasks for an RL agent.
+    """
+
+    @abstractmethod
+    def __init__(self,
+                 settings: BaseTaskSettings,
+                 sensor: PybulletPhonebotSensor):
+        """Initialize the task instance.
+
+        Args:
+            settings (BaseTaskSettings): A specific task settings class should
+               be made for the task, which can be used to configure the task.
+            sensor (PybulletPhonebotSensor): An instance of a PybulletPhonebotSensor
+               whose sense method will be called. 
+        """
+        pass
 
     @staticmethod
     @abstractmethod
-    def get_size():
+    def get_size() -> int:
+        """Return the size of the input space to provide the RL agent (number of
+        dimensions of the space property.)
+
+        Returns:
+            int: The size of the input space. If there are no inputs to the
+                RL agent, then the space size is 0. Else, the space size
+                is the number of parameters to provide the RL agent with.
+        """
+        pass
+
+    @abstractproperty
+    def target(self) -> np.ndarray:
+        """Return the target parameters for the RL agent. This should be the
+        same length as the get_size method. This should only be used if the task
+        is variable and the RL agent needs to learn a policy based on input
+        variables of the task. The target will be concatenated onto the end
+        of the sense array to create the state array.
+
+        Returns:
+            np.ndarray: A #get_size()x1 array of the target.
+        """
         pass
 
     @abstractmethod
-    def reset(self, sim_id: int, robot_id: int, state: np.ndarray):
+    def reset(self, sim_id: int, robot_id: int) -> None:
+        """Perform actions to reset the simulation with new parameters and a
+        a new environment. This function should reset the agent in the simulation
+        and set appropriate space parameters according to the new goal if
+        applicable.
+
+        Args:
+            sim_id (int): the pybullet physicsClientId for the simulation
+                to reset.
+            robot_id (int): the id of the robot to reset.
+        """
         pass
 
     @abstractmethod
-    def compute_reward(self, state0: np.ndarray, state1: np.ndarray):
+    def compute_reward(self, state0: np.ndarray, state1: np.ndarray) -> float:
+        """Compute the reward for the current state transition from state0 to
+        state1. Each state vector is 
+
+        Args:
+            state0 (np.ndarray): The previous state vector
+            state1 (np.ndarray): The current state vector
+
+        Returns:
+            float: The reward for the given state transition
+        """
         pass
 
     @abstractmethod
-    def compute_is_done(self, state: np.ndarray):
+    def compute_is_done(self, state: np.ndarray) -> bool:
+        """Compute whether the task should terminate. If the task is simply
+        meant to terminate after a fixed number of steps, return False.
+
+        Args:
+            state (np.ndarray): The current state vector of the agent.
+
+        Returns:
+            bool: True if the task should terminate, False otherwise.
+        """
         pass
 
     @abstractproperty
     def space(self):
+        """This should return a gym.spaces.Box instance representing the
+        parameters to provide the RL agent as inputs. This should be used
+        for tasks which are variable. For example, if a task is meant to
+        optimize the robot's trajectory in a random heading direction, this
+        could be a gym.spaces.Box(-np.pi, np.pi, shape=(1,)) which would
+        correspond to giving the RL agent the heading as input.
+        """
         pass
 
 
-
-
-
 @dataclass
-class ForwardVelocityTaskSettings:
+class ForwardVelocityTaskSettings(BaseTaskSettings):
+    """Settings for the ForwardVelocityTask.
+
+        random_init (bool): If True, then randomly initialize the agent with
+            a random orientation. If True, then the range of random values is
+            chosen from a distribution around 0 of width init_ang_scale.
+        init_ang_scale (Tuple[float, float, float]): The range to randomly
+            select euler anglels from (roll, pitch, yaw).
+    """
     random_init: bool = True
     init_ang_scale: Tuple[float, float, float] = (
         np.pi / 4, np.pi / 4, np.pi / 4)
 
 
 class ForwardVelocityTask(BaseTask):
+    """Describes a task which rewards an agent for forward velocity.
+    """
+    # No inputs are provided to the agent since the goal is non-variable
     space = gym.spaces.Box(0, 0, shape=(0,))
 
     def __init__(self, sensor: PybulletPhonebotSensor,
                  settings: ForwardVelocityTaskSettings):
+        """Initialize a ForwardVelocityTask.
+
+        Args:
+            sensor (PybulletPhonebotSensor): A sensor to provide detailed
+                information about the state of the agent in the simulation.
+            settings (ForwardVelocityTaskSettings): The task settings. See
+                the settings object for details.
+        """
         self.sensor_ = sensor
         self.settings = settings
         self.fwd_ = np.zeros(3, dtype=np.float32)
@@ -61,11 +159,16 @@ class ForwardVelocityTask(BaseTask):
 
     @staticmethod
     def get_size():
+        """The task is non-variable, so the space has 0 size.
+
+        Returns:
+            int: 0 (the size of the space)
+        """
         return 0
 
     @property
     def target(self):
-        return []
+        return np.asarray([])
 
     def set_rng(self, rng):
         self.rng = rng
@@ -82,7 +185,7 @@ class ForwardVelocityTask(BaseTask):
             robot_id, position, rotation, physicsClientId=sim_id)
 
         # Determine forward direction from now...
-        pos, rot = pb.getBasePositionAndOrientation(
+        _, rot = pb.getBasePositionAndOrientation(
             robot_id, physicsClientId=sim_id)
         yaw = pb.getEulerFromQuaternion(rot)[2]
         self.fwd_ = np.asarray([np.cos(yaw), np.sin(yaw), 0.0])
@@ -99,7 +202,7 @@ class ForwardVelocityTask(BaseTask):
 
 
 @dataclass
-class CounterClockwiseRotationTaskSettings:
+class CounterClockwiseRotationTaskSettings(BaseTaskSettings):
     random_init: bool = True
     init_ang_scale: Tuple[float, float, float] = (
         np.pi / 4, np.pi / 4, np.pi / 4)
@@ -120,7 +223,7 @@ class CounterClockwiseRotationTask(BaseTask):
 
     @property
     def target(self):
-        return []
+        return np.asarray([])
 
     def set_rng(self, rng):
         self.rng = rng
@@ -144,10 +247,17 @@ class CounterClockwiseRotationTask(BaseTask):
         return False
 
 
+@dataclass
+class HoldVelocityTaskSettings(BaseTaskSettings):
+    pass
+
+
 class HoldVelocityTask(BaseTask):
     space = gym.spaces.Box(-np.inf, np.inf, shape=(2,))
 
-    def __init__(self, sensor: PybulletPhonebotSensor):
+    def __init__(self, settings: HoldVelocityTaskSettings,
+                 sensor: PybulletPhonebotSensor):
+        self.settings = settings  # Currently unused
         self.sensor_ = sensor
         self.target_v = 0.0
         self.target_w = 0.0
@@ -187,10 +297,10 @@ class HoldVelocityTask(BaseTask):
 
         err_v = (self.target_v - v_x)
         err_w = (self.target_w - w_z)
-        #logger.debug(
+        # logger.debug(
         #    '{:.2f} {:.2f} {:.2f} {:.2f}'.format(
         #        v_x, w_z, self.target_v, self.target_w)
-        #)
+        # )
 
         err = (self.weight_v * err_v * err_v +
                self.weight_w * err_w * err_w)
@@ -201,22 +311,29 @@ class HoldVelocityTask(BaseTask):
         return False
 
 
+@dataclass
+class HoldSpeedTaskSettings(BaseTaskSettings):
+    pass
+
 
 class HoldSpeedTask(BaseTask):
     space = gym.spaces.Box(-np.inf, np.inf, shape=(1,))
-    
-    def __init__(self, sensor: PybulletPhonebotSensor):
+
+    def __init__(self,
+                 settings: HoldSpeedTaskSettings,
+                 sensor: PybulletPhonebotSensor):
+        self.settings = settings  # Currently unused
         self.sensor_ = sensor
         self.target_speed = 0.0
         self.rng = np.random
-        
+
     @staticmethod
     def get_size():
         return 1
-    
+
     @property
     def target(self):
-        return self.target_speed
+        return np.asarray([self.target_speed])
 
     def set_rng(self, rng):
         self.rng = rng
@@ -237,7 +354,7 @@ class HoldSpeedTask(BaseTask):
 
         bv = state1[self.sensor_.slice_base_velocity]
         v = bv[0:3]
-        v[2] = 0 
+        v[2] = 0
         err_v = (self.target_speed - np.linalg.norm(v))**2
 
         return -err_v
@@ -245,13 +362,12 @@ class HoldSpeedTask(BaseTask):
     def compute_is_done(self, state: np.ndarray):
         return False
 
-
-    def calc_state_energy(self, prev_state: np.ndarray, curr_state: np.ndarray)-> float:
+    def calc_state_energy(self, prev_state: np.ndarray, curr_state: np.ndarray) -> float:
         """Calculates the amount of energy expended going from the previous state
         to the current state. Specifically, use a linear estimate of the work
         done to get from the previous state to the current state assuming
         that the torque for each motor is the average torque from prev_state
-        to curr_state. 
+        to curr_state.
 
         This is an estimate of the change in state energy, and is not exact, and
         may result in drift over time if used with conservation laws.
@@ -260,20 +376,20 @@ class HoldSpeedTask(BaseTask):
             float: Energy (total work) required to move from previous state to
                 current state.
         """
-        joint_pos_1 = state1[self.sensor_.slice_active_joints]
-        joint_pos_2 = state2[self.sensor_.slice_active_joints]
+        joint_pos_1 = prev_state[self.sensor_.slice_active_joints]
+        joint_pos_2 = curr_state[self.sensor_.slice_active_joints]
         joint_d_pos = joint_pos_2 - joint_pos_1
-        joint_torque_1 = state1[self.sensor_.slice_active_joints_torque]
-        joint_torque_2 = state2[self.sensor_.slice_active_joints_torque]
-        mean_torque = (joint_torque_1 + joint_torque_2)/2
+        joint_torque_1 = prev_state[self.sensor_.slice_active_joints_torque]
+        joint_torque_2 = curr_state[self.sensor_.slice_active_joints_torque]
+        mean_torque = (joint_torque_1 + joint_torque_2) / 2
 
-        work = joint_d_pos*mean_torque
+        work = joint_d_pos * mean_torque
         total_work = np.sum(work)
         return total_work
 
 
 @dataclass
-class ReachPositionTaskSettings:
+class ReachPositionTaskSettings(BaseTaskSettings):
     max_time: float
 
     # Whether to initialize randomly
