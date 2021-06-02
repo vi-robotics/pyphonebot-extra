@@ -58,7 +58,7 @@ class ModelGeometry():
         Returns:
             str: The name of the geometry.
         """
-        return self.name_
+        return self._name
 
     @name.setter
     def name(self, value: str):
@@ -73,7 +73,7 @@ class ModelGeometry():
         if not isinstance(value, str):
             raise ValueError(f"value must be a str, not {type(value)}")
         else:
-            self.name_ = value
+            self._name = value
 
     @abstractmethod
     def inertia(self) -> np.ndarray:
@@ -112,7 +112,7 @@ class ModelParametricGeometry(ModelGeometry):
         Returns:
             str: The type of the geometry
         """
-        return self.type_
+        return self._type
 
     @type.setter
     def type(self, value: str):
@@ -123,7 +123,7 @@ class ModelParametricGeometry(ModelGeometry):
         """
         if not isinstance(value, str):
             raise ValueError(f"value must be type str, not {type(value)}")
-        self.type_ = value
+        self._type = value
 
     @property
     def param(self) -> Tuple[Any]:
@@ -132,7 +132,7 @@ class ModelParametricGeometry(ModelGeometry):
         Returns:
             Tuple[Any]: The tuple of parameters for the geometry
         """
-        return self.param_
+        return self._param
 
     @param.setter
     def param(self, value: Tuple[Any]):
@@ -141,7 +141,7 @@ class ModelParametricGeometry(ModelGeometry):
         Args:
             value (Tuple[Any]): The parameters to set
         """
-        self.param_ = value
+        self._param = value
 
     def __eq__(self, other):
         if not self.type == other.type:
