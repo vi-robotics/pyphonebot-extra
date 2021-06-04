@@ -6,9 +6,16 @@ import numpy as np
 import math
 
 
-def debug_get_full_aabb(sim_id: int, robot_id: int):
-    """
-    Get full AABB of a robot including all of its constituent links.
+def debug_get_full_aabb(sim_id: int, robot_id: int) -> np.ndarray:
+    """Get full AABB of a robot including all of its constituent links.
+
+    Args:
+        sim_id (int): The id of the pybullet sim
+        robot_id (int): The id of the pybullet robot
+
+    Returns:
+        np.ndarray: An #2x3 array representing the min and max corners of the
+            axis-aligned bounding box
     """
     num_joints = pb.getNumJoints(robot_id, physicsClientId=sim_id)
     aabb = np.asarray(pb.getAABB(
@@ -20,10 +27,20 @@ def debug_get_full_aabb(sim_id: int, robot_id: int):
     return aabb
 
 
-def debug_draw_frame_axes(sim_id: int, robot_id: int, scale: float = 1.0, joint_indices: List[int] = None):
-    """
-    Draw XYZ frame axes over links (color: RGB)
-    If `joint_indices` is not specified, frames will be drawn for all joints.
+def debug_draw_frame_axes(sim_id: int,
+                          robot_id: int,
+                          scale: float = 1.0,
+                          joint_indices: List[int] = None) -> None:
+    """Draw XYZ frame axes over links (color: RGB) If `joint_indices` is not
+    specified, frames will be drawn for all joints.
+
+    Args:
+        sim_id (int): The id of the pybullet sim
+        robot_id (int): The id of the pybullet robot
+        scale (float, optional): By default, debug lines have unit length. Scale
+            is multilplied by this length to display the axes. Defaults to 1.0.
+        joint_indices (List[int], optional): The indices of the joints to
+            draw debug axes for in the pybullet sim. Defaults to None.
     """
     # If joint indices not specified, draw over all existing links.
     if joint_indices is None:
@@ -37,14 +54,19 @@ def debug_draw_frame_axes(sim_id: int, robot_id: int, scale: float = 1.0, joint_
                                 parentLinkIndex=ji, physicsClientId=sim_id)
 
 
-def debug_draw_inertia_box(parentUid, parentLinkIndex, color):
+def debug_draw_inertia_box(parent_uid: int, parent_link_index: int, color: List[int]):
+    """Draw the inertia box around a given link
+
+    Args:
+        parent_uid (int): The id of the parent of the link to draw the debug
+            entity in local coordinates
+        parent_link_index (int): The index of the link in the parent
+        color (List[int]): A length 3 list of red, green, blue values
+
+    (taken from pybullet/examples/quadruped.py)
     """
-    taken from pybullet/examples/quadruped.py
-    """
-    p = pb
-    dyn = p.getDynamicsInfo(parentUid, parentLinkIndex)
+    dyn = pb.getDynamicsInfo(parent_uid, parent_link_index)
     mass = dyn[0]
-    frictionCoeff = dyn[1]
     inertia = dyn[2]
     if (mass > 0):
         Ixx = inertia[0]
@@ -64,77 +86,77 @@ def debug_draw_inertia_box(parentUid, parentLinkIndex, color):
                [halfExtents[0], -halfExtents[1], -halfExtents[2]],
                [-halfExtents[0], -halfExtents[1], -halfExtents[2]]]
 
-        p.addUserDebugLine(pts[0],
-                           pts[1],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[1],
-                           pts[3],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[3],
-                           pts[2],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[2],
-                           pts[0],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
+        pb.addUserDebugLine(pts[0],
+                            pts[1],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
+        pb.addUserDebugLine(pts[1],
+                            pts[3],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
+        pb.addUserDebugLine(pts[3],
+                            pts[2],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
+        pb.addUserDebugLine(pts[2],
+                            pts[0],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
 
-        p.addUserDebugLine(pts[0],
-                           pts[4],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[1],
-                           pts[5],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[2],
-                           pts[6],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[3],
-                           pts[7],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
+        pb.addUserDebugLine(pts[0],
+                            pts[4],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
+        pb.addUserDebugLine(pts[1],
+                            pts[5],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
+        pb.addUserDebugLine(pts[2],
+                            pts[6],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
+        pb.addUserDebugLine(pts[3],
+                            pts[7],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
 
-        p.addUserDebugLine(pts[4 + 0],
-                           pts[4 + 1],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[4 + 1],
-                           pts[4 + 3],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[4 + 3],
-                           pts[4 + 2],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[4 + 2],
-                           pts[4 + 0],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
+        pb.addUserDebugLine(pts[4 + 0],
+                            pts[4 + 1],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
+        pb.addUserDebugLine(pts[4 + 1],
+                            pts[4 + 3],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
+        pb.addUserDebugLine(pts[4 + 3],
+                            pts[4 + 2],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
+        pb.addUserDebugLine(pts[4 + 2],
+                            pts[4 + 0],
+                            color,
+                            1,
+                            parentObjectUniqueId=parent_uid,
+                            parentLinkIndex=parent_link_index)
