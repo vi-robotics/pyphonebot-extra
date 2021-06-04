@@ -47,13 +47,13 @@ class BasePoseSensor(SensorBase):
                         dtype=np.float32)))
 
     def __init__(self):
-        self.sim_id_ = -1
-        self.robot_id_ = -1
+        self._sim_id = -1
+        self._robot_id = -1
 
     def reset(self, sim_id: int, robot_id: int):
         # Save IDs...
-        self.sim_id_ = sim_id
-        self.robot_id_ = robot_id
+        self._sim_id = sim_id
+        self._robot_id = robot_id
 
     def sense(self):
         txn, rxn = pb.getBasePositionAndOrientation(
@@ -62,11 +62,11 @@ class BasePoseSensor(SensorBase):
 
     @property
     def sim_id(self):
-        return self.sim_id_
+        return self._sim_id
 
     @property
     def robot_id(self):
-        return self.robot_id_
+        return self._robot_id
 
     @property
     def size(self):
@@ -80,33 +80,33 @@ class JointStateSensor(SensorBase):
 
     def __init__(self, joint_indices: list = None):
         # handles
-        self.sim_id_ = -1
-        self.robot_id_ = -1
+        self._sim_id = -1
+        self._robot_id = -1
 
         # params
         self.joint_indices_ = joint_indices
-        self.num_joints_ = 0
+        self._num_joints = 0
 
         # cfg
         self.space_ = None
 
     def reset(self, sim_id: int, robot_id: int):
         # Save IDs...
-        self.sim_id_ = sim_id
-        self.robot_id_ = robot_id
+        self._sim_id = sim_id
+        self._robot_id = robot_id
 
         # Get relevant parameters.
         if self.joint_indices_ is None:
             # FIXME(ycho): what if # of joints changes per reset?
-            self.num_joints_ = pb.getNumJoints(
+            self._num_joints = pb.getNumJoints(
                 self.robot_id, physicsClientId=sim_id)
-            self.joint_indices_ = list(range(self.num_joints_))
+            self.joint_indices_ = list(range(self._num_joints))
         else:
-            self.num_joints_ = len(self.joint_indices_)
+            self._num_joints = len(self.joint_indices_)
 
         # FIXME(ycho): Determine `space` type based on prismatic/revolute
-        jlim_lo = np.zeros(self.num_joints_)
-        jlim_hi = np.zeros(self.num_joints_)
+        jlim_lo = np.zeros(self._num_joints)
+        jlim_hi = np.zeros(self._num_joints)
         for i, j in enumerate(self.joint_indices_):
             joint_info = pb.getJointInfo(robot_id, j, physicsClientId=sim_id)
             joint_type = joint_info[2]
@@ -126,11 +126,11 @@ class JointStateSensor(SensorBase):
 
     @property
     def sim_id(self):
-        return self.sim_id_
+        return self._sim_id
 
     @property
     def robot_id(self):
-        return self.robot_id_
+        return self._robot_id
 
     @property
     def space(self):
@@ -151,11 +151,11 @@ class FlatSensorWrapper(SensorBase):
 
     @property
     def sim_id(self):
-        return self.sim_id_
+        return self._sim_id
 
     @property
     def robot_id(self):
-        return self.robot_id_
+        return self._robot_id
 
     def sense(self, out=None):
         return gym.spaces.flatten(
@@ -311,8 +311,8 @@ class PybulletPhonebotSensor(object):
         return (saj, sajv, sajt, spj, spjv, spjt, sbp, sbv, n)
 
     def sense_base_position(self, out=None):
-        sim_id = self.sim_id_
-        robot_id = self.robot_id_
+        sim_id = self._sim_id
+        robot_id = self._robot_id
         if out is None:
             out = np.zeros(7, dtype=np.float32)
         bx, bq = pb.getBasePositionAndOrientation(
@@ -322,8 +322,8 @@ class PybulletPhonebotSensor(object):
         return out
 
     def sense_base_velocity(self, out=None):
-        sim_id = self.sim_id_
-        robot_id = self.robot_id_
+        sim_id = self._sim_id
+        robot_id = self._robot_id
         if out is None:
             out = np.zeros(6, dtype=np.float32)
         bv, bw = pb.getBaseVelocity(robot_id, physicsClientId=sim_id)
@@ -344,8 +344,8 @@ class PybulletPhonebotSensor(object):
             np.ndarray: An array of the same shape as joint indices representing
                 the joint positions.
         """
-        sim_id = self.sim_id_
-        robot_id = self.robot_id_
+        sim_id = self._sim_id
+        robot_id = self._robot_id
         shape = np.shape(joint_indices)
         if out is None:
             out = np.zeros(shape, dtype=np.float32)
@@ -369,8 +369,8 @@ class PybulletPhonebotSensor(object):
             np.ndarray: An array of the same shape as joint indices representing
                 the joint angular velocities in radians per second.
         """
-        sim_id = self.sim_id_
-        robot_id = self.robot_id_
+        sim_id = self._sim_id
+        robot_id = self._robot_id
         shape = np.shape(joint_indices)
         if out is None:
             out = np.zeros(shape, dtype=np.float32)
@@ -395,8 +395,8 @@ class PybulletPhonebotSensor(object):
             np.ndarray: An array of the same shape as joint indices representing
                 the joint torques.
         """
-        sim_id = self.sim_id_
-        robot_id = self.robot_id_
+        sim_id = self._sim_id
+        robot_id = self._robot_id
         shape = np.shape(joint_indices)
         if out is None:
             out = np.zeros(shape, dtype=np.float32)
@@ -408,16 +408,16 @@ class PybulletPhonebotSensor(object):
         return out
 
     def reset(self, sim_id: int, robot_id: int):
-        self.sim_id_ = sim_id
-        self.robot_id_ = robot_id
+        self._sim_id = sim_id
+        self._robot_id = robot_id
         if self.use_aj_:
             self.aji_ = np.asarray([self.n2i_(n) for n in self.ajn_])
         if self.use_pj_:
             self.pji_ = np.asarray([self.n2i_(n) for n in self.pjn_])
 
     def sense(self, out=None):
-        sim_id = self.sim_id_
-        robot_id = self.robot_id_
+        sim_id = self._sim_id
+        robot_id = self._robot_id
 
         if out is None:
             out = np.zeros(self.size_, dtype=np.float32)
