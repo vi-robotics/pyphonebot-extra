@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-
+"""Demo the PhonebotViewer by constructing a PhonebotGraph and updating
+the transforms of the legs.
+"""
 import time
 import numpy as np
 
@@ -16,20 +18,19 @@ def main():
     # (This will get rid of buffering artifacts)
     config.queue_size = 1
     graph = PhonebotGraph(config)
-    data_queue, event_queue, command_queue = PhonebotViewer.create()
+    data_queue, _, _ = PhonebotViewer.create()
 
     # Arbitrary stamp.
     stamp = time.time()
 
     # Initialize angles to 0.
     for leg_prefix in config.order:
-        leg_origin = '{}_leg_origin'.format(leg_prefix)
-        hip_joint_a = '{}_hip_joint_a'.format(leg_prefix)
-        hip_joint_b = '{}_hip_joint_b'.format(leg_prefix)
-        knee_joint_a = '{}_knee_joint_a'.format(leg_prefix)
-        knee_joint_b = '{}_knee_joint_b'.format(leg_prefix)
-        foot_a = '{}_foot_a'.format(leg_prefix)
-        foot_b = '{}_foot_b'.format(leg_prefix)
+        hip_joint_a = f'{leg_prefix}_hip_joint_a'
+        hip_joint_b = f'{leg_prefix}_hip_joint_b'
+        knee_joint_a = f'{leg_prefix}_knee_joint_a'
+        knee_joint_b = f'{leg_prefix}_knee_joint_b'
+        foot_a = f'{leg_prefix}_foot_a'
+        foot_b = f'{leg_prefix}_foot_b'
 
         graph.get_edge(knee_joint_a, hip_joint_a).update(
             stamp, 0.0)
@@ -41,17 +42,16 @@ def main():
             stamp, 0.0)
 
     # Sweep angles for both joints, run ik and visualize results.
-    for hip_angle_a in np.linspace(0.0, 2*np.pi, 20):
-        for hip_angle_b in np.linspace(0.0, 2*np.pi, 20):
+    for hip_angle_a in np.linspace(0.0, 2 * np.pi, 20):
+        for hip_angle_b in np.linspace(0.0, 2 * np.pi, 20):
 
             for leg_prefix in config.order:
-                leg_origin = '{}_leg_origin'.format(leg_prefix)
-                hip_joint_a = '{}_hip_joint_a'.format(leg_prefix)
-                hip_joint_b = '{}_hip_joint_b'.format(leg_prefix)
-                knee_joint_a = '{}_knee_joint_a'.format(leg_prefix)
-                knee_joint_b = '{}_knee_joint_b'.format(leg_prefix)
-                foot_a = '{}_foot_a'.format(leg_prefix)
-                foot_b = '{}_foot_b'.format(leg_prefix)
+                hip_joint_a = f'{leg_prefix}_hip_joint_a'
+                hip_joint_b = f'{leg_prefix}_hip_joint_b'
+                knee_joint_a = f'{leg_prefix}_knee_joint_a'
+                knee_joint_b = f'{leg_prefix}_knee_joint_b'
+                foot_a = f'{leg_prefix}_foot_a'
+                foot_b = f'{leg_prefix}_foot_b'
 
                 graph.get_edge(knee_joint_a, hip_joint_a).update(
                     stamp, hip_angle_a)
@@ -74,17 +74,18 @@ def main():
                     foot_a, 'body', stamp).position
                 pos_b = graph.get_transform(
                     foot_b, 'body', stamp).position
-                print('foot_positions : {} == {}'.format(pos_a, pos_b))
+                print(f'foot_positions : {pos_a} == {pos_b}')
                 ik_solution = solve_inverse_kinematics(
                     graph, stamp, leg_prefix, pos_a, config=config)
-                print('angles : {} == {}'.format(
-                    anorm([hip_angle_a, hip_angle_b]), ik_solution))
+                print(f'angles : {anorm([hip_angle_a, hip_angle_b])}'
+                      f' == {ik_solution}')
 
                 # Send data to asynchronous viewer.
                 poses, edges = get_graph_geometries(graph, stamp, tol=np.inf)
                 if not data_queue.full():
                     data_queue.put_nowait(
-                        {'poses': dict(poses=poses), 'edges': dict(poses=poses, edges=edges)})
+                        {'poses': dict(poses=poses), 'edges': dict(poses=poses,
+                                                                   edges=edges)})
 
 
 if __name__ == '__main__':
