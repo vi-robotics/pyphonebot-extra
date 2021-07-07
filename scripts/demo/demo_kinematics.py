@@ -3,6 +3,7 @@
 import numpy as np
 import time
 
+import cv2
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 
@@ -15,7 +16,11 @@ from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
 from phonebot.vis.viewer.proxy_command import ProxyCommand
 from phonebot.vis.viewer.proxy_commands import AddPointsCommand
 
+
 class PickableViewer(PhonebotViewer):
+    """A PickableViewer handles click and drag events from a PhonebotViewer
+    """
+
     def __init__(self, *args, **kwargs):
         self.select_index = None
         self.mx = 0
@@ -23,7 +28,14 @@ class PickableViewer(PhonebotViewer):
         self.pxs = 1.0
         super().__init__(*args, **kwargs)
 
-    def on_mouse(self, event, event_type):
+    def on_mouse(self, event: QtCore.pyqtSignal, event_type: str):
+        """Handle a mouse event, including click, drag and release.
+
+        Args:
+            event (QtCore.pyqtSignal): The pyqtSignal event instance.
+            event_type (str): The type of event which is signaled. Can be
+                'press', 'move', or 'release'
+        """
         if event_type == 'press':
             self.select_index = None
             if event.button() not in [QtCore.Qt.RightButton]:
@@ -32,11 +44,11 @@ class PickableViewer(PhonebotViewer):
             # Project all items to screen space.
             pos3d = self.items_['foot_ctrl'].pos
             P = pg.transformToArray(self.widget_.projectionMatrix() * self.widget_.viewMatrix())
-            p = (pos3d @ P[:3,:3].T + P[:3,3:].T)
+            p = (pos3d @ P[:3, :3].T + P[:3, 3:].T)
             p = (p[:, :2] / p[:, 2:])
             p = (p + 1.0) / 2.0
-            p[:,1] = 1.0 - p[:,1]
-            px, py = self.widget_.width() * p[:,0],  self.widget_.height() * p[:,1], 
+            p[:, 1] = 1.0 - p[:, 1]
+            px, py = self.widget_.width() * p[:, 0], self.widget_.height() * p[:, 1],
 
             # Project cursor position.
             pos = self.widget_.mapFromGlobal(event.globalPos())
@@ -44,14 +56,13 @@ class PickableViewer(PhonebotViewer):
             self.mx = mx
             self.my = my
 
-            delta = np.linalg.norm(np.stack([px, py], axis=-1) - (mx,my), axis=-1)
+            delta = np.linalg.norm(np.stack([px, py], axis=-1) - (mx, my), axis=-1)
             sel = np.argmin(delta)
-            print(delta[sel])
             if delta[sel] < 5.0:
                 world_from_camera = pg.transformToArray(self.widget_.viewMatrix())
-                R = world_from_camera[:3,:3].T
-                xvec = R.dot([-1,0,0])
-                yvec = R.dot([0,-1,0])
+                R = world_from_camera[:3, :3].T
+                xvec = R.dot([-1, 0, 0])
+                yvec = R.dot([0, -1, 0])
                 # zvec = R.dot([0,0,1])
 
                 self.select_index = sel
@@ -75,27 +86,23 @@ class PickableViewer(PhonebotViewer):
         elif event_type == 'release':
             self.select_index = None
 
-        return
 
-        # print(pos3d)
-        # img = self.widget_.readQImage()
-        img = self.widget_.renderToArray(
-                (self.widget_.width(), self.widget_.height())).swapaxes(0,1)
-        pos = self.widget_.mapFromGlobal(event.globalPos())
-        x, y = (pos.x(), pos.y())
-        h, w = img.shape[:2]
+def update_angles(graph: PhonebotGraph,
+                  hip_angle_a: float,
+                  hip_angle_b: float,
+                  stamp: float,
+                  config: PhonebotSettings):
+    """Update the angles of the PhonebotGraph using 
 
-        arr  = img
-
-        # event.accept()
-        if not self.event_queue_.full():
-            self.event_queue_.put_nowait(arr)
-
-
-def update_angles(graph: PhonebotGraph, hip_angle_a: float, hip_angle_b: float, stamp: float, config: PhonebotSettings):
+    Args:
+        graph (PhonebotGraph): [description]
+        hip_angle_a (float): [description]
+        hip_angle_b (float): [description]
+        stamp (float): [description]
+        config (PhonebotSettings): [description]
+    """
     # Initialize angles to 0.
     for leg_prefix in config.order:
-        leg_origin = '{}_leg_origin'.format(leg_prefix)
         hip_joint_a = '{}_hip_joint_a'.format(leg_prefix)
         hip_joint_b = '{}_hip_joint_b'.format(leg_prefix)
         knee_joint_a = '{}_knee_joint_a'.format(leg_prefix)
@@ -111,7 +118,7 @@ def update_angles(graph: PhonebotGraph, hip_angle_a: float, hip_angle_b: float, 
 
         knee_angle_a, knee_angle_b = solve_knee_angle(
             graph, leg_prefix, stamp, config)
-        print('knee : {}'.format(knee_angle_a))
+        print(f'knee angle : {knee_angle_a}')
 
         # Set knee
         graph.get_edge(foot_a, knee_joint_a).update(
@@ -140,20 +147,13 @@ def main():
             leg_from_local = graph.get_transform('local', '{}_leg_origin'.format(config.order[idx]), stamp)
             pnew_leg = leg_from_local * Position(pnew)
             ja, jb = solve_inverse_kinematics(
-                    graph, stamp, config.order[idx],
-                    pnew_leg, config)
+                graph, stamp, config.order[idx],
+                pnew_leg, config)
             hip_angle_a = ja
             hip_angle_b = jb
-            print(ja, jb)
-            # update_angles(graph, ja, jb, stamp, config)
+
         except Exception as e:
             print(e)
-
-        #if isinstance(event, np.ndarray):
-        #    cv2.imshow('win', event)
-        #    cv2.waitKey(0)
-        #print('!!!!!!!!!!!!!!!!!!!', type(event))
-        return
 
     mouse_listener = QueueListener(event_queue, on_event)
     mouse_listener.start()
@@ -169,7 +169,7 @@ def main():
         'FR': (0, 1, 0, 1),
         'HL': (1, 0, 0, 1),
         'HR': (1, 0, 1, 1)
-        }
+    }
 
     # Sweep angles for both joints, run ik and visualize results.
     # for hip_angle_a in np.linspace(0.0, 2*np.pi, 20):
