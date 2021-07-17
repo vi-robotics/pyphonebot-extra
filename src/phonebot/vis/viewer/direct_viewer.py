@@ -86,7 +86,6 @@ class DirectViewer(ViewerBase):
         Args:
             topic: The event topic; e.g. "key" or "mouse"
             callback: The callback function that accepts the expected payload.
-
         """
         # FIXME(ycho): `defaultdict`?
         if topic not in self.event_cbs_:
@@ -103,18 +102,21 @@ class DirectViewer(ViewerBase):
 
     def start(self):
         """Start the viewer.
+
         TODO(ycho): In general, `ViewerState` management is done poorly throughout the viewer stack.
         """
         self.state_ = ViewerState.OPEN
 
     def stop(self):
         """Stop the viewer.
+
         TODO(ycho): In general, `ViewerState` management is done poorly throughout the viewer stack.
         """
         self.state_ = ViewerState.CLOSED
 
     def state(self):
         """Retrieve the current viewer state.
+
         TODO(ycho): In general, `ViewerState` management is done poorly throughout the viewer stack.
         """
         return self.state_

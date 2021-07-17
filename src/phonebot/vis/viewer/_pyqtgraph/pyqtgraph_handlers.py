@@ -63,7 +63,8 @@ class PointsHandler:
 
 
 class LinesHandler:
-    """Draw lines, as independent segments expressed as lists of point pairs."""
+    """Draw lines, as independent segments expressed as lists of point
+    pairs."""
 
     def __init__(self, viewer: 'PyqtViewer3D'):
         item = gl.GLLinePlotItem(mode='lines')

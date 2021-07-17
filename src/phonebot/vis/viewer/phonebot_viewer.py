@@ -15,8 +15,7 @@ class PhonebotViewer(AsyncViewer):
     """AsyncViewer with some default handlers configured."""
 
     def __init__(self, base_viewer: ViewerBase = PyqtViewer3D):
-        """
-        Instantiate Phonebot Viewer with reasonable default handlers.
+        """Instantiate Phonebot Viewer with reasonable default handlers.
 
         Args:
             base_viewer: Synchronous viewer server based for AsyncViewer.

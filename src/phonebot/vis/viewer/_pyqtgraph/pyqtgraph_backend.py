@@ -56,7 +56,7 @@ class PyqtApplication:
     def __init__(
             self, on_key: Callable[[Tuple[int]], Any],
             on_mouse: Callable[[Tuple[str, int, int, int]], Any]):
-        """ Create Interactive Pyqt Application with GUI events.
+        """Create Interactive Pyqt Application with GUI events.
 
         Args:
             on_key: Keyboard event callback, called as on_key(key_id)
@@ -128,7 +128,7 @@ class PyqtViewer(DirectViewer):
     """Direct synchronous viewer."""
 
     class Signals(QtCore.QObject):
-        """ Signals to forward function calls to main thread """
+        """Signals to forward function calls to main thread."""
         register = QtCore.pyqtSignal(tuple, dict)
         unregister = QtCore.pyqtSignal(tuple, dict)
         handle = QtCore.pyqtSignal(tuple, dict)

@@ -12,15 +12,14 @@ from phonebot.vis.viewer.viewer_base import (
 
 
 class AsyncClient:
-    """Async communication viewer client that communicates with the server (in a different process) over mp.Queue."""
+    """Async communication viewer client that communicates with the server (in
+    a different process) over mp.Queue."""
 
     def __init__(self,
                  cls: Callable[..., ViewerBase],
                  data_queue: mp.Queue, event_queue: mp.Queue,
                  args: List, kwds: Dict):
-        """
-
-        Create async client.
+        """Create async client.
 
         TODO(ycho): If possible, consider replacing cls with viewer_fn to rid of the
         ugly syntax with `args`/`kwds` arguments passed around everywhere.
@@ -31,7 +30,6 @@ class AsyncClient:
             event_queue: Event queue for client to handle; server(viewer)->client
             args: Positional args for instantiation, i.e. cls(*args,**kwds)
             kwds: Keyword args for instantiation, i.e. cls(*args,**kwds)
-
         """
         super().__init__()
         self.data_queue = data_queue
@@ -57,30 +55,30 @@ class AsyncClient:
             self.register(name, handler)
 
     def __on_event(self, topic: str, data):
-        """ Internal event handler """
+        """Internal event handler."""
         self.event_queue.put_nowait((topic, data))
         # By default, don't take ownership of event
         return False
 
     def register(self, name: str, handler: Callable):
-        """ Delegate handler registration """
+        """Delegate handler registration."""
         return self.viewer.register(name, handler)
 
     def unregister(self, name: str):
-        """ Delegate handler un-registration """
+        """Delegate handler un-registration."""
         return self.viewer.unregister(name)
 
     def handle(self, data):
-        """ Delegate handle() """
+        """Delegate handle()"""
         return self.viewer.handle(data)
 
     def start(self):
-        """ Delegate start() but also with communication listeners """
+        """Delegate start() but also with communication listeners."""
         self.data_listener.start()
         self.viewer.start()
 
     def stop(self):
-        """ Delegate stop() but also with communication listeners """
+        """Delegate stop() but also with communication listeners."""
         if (self.data_listener is not None and not self.data_listener.stopped()):
             self.data_listener.stop()
             if threading.current_thread() != self.data_listener:
@@ -89,17 +87,17 @@ class AsyncClient:
         self.viewer.stop()
 
     def state(self) -> ViewerState:
-        """ Delegate state() """
+        """Delegate state()"""
         return self.viewer.state()
 
     def __del__(self):
-        """ Stop first and delete self """
+        """Stop first and delete self."""
         self.stop()
         super().__del__()
 
     @classmethod
     def run(cls, *args, **kwds):
-        """ Convenience method for creating and starting an instance. """
+        """Convenience method for creating and starting an instance."""
         instance = cls(*args, **kwds)
         return instance.start()
 
@@ -209,7 +207,7 @@ class AsyncViewer(ViewerBase):
         self.event_listener.start()
 
     def state(self) -> ViewerState:
-        """Get async viewer running state"""
+        """Get async viewer running state."""
         return ViewerState.OPEN if self.process.is_alive() else ViewerState.CLOSED
 
     def __del__(self):

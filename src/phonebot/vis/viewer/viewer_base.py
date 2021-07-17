@@ -98,8 +98,8 @@ def with_attr(obj, name, value):
 
 
 class HandleHelper:
-    """
-    Helper class for using `Viewer` without ugly syntax.
+    """Helper class for using `Viewer` without ugly syntax.
+
     Refer to the apps/ directory in `extras` for sample usages.
     """
 
