@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-from typing import List, Tuple
+from typing import Any, List, Tuple, Dict
 import time
 import numpy as np
 import pybullet as pb
 import math
+from dataclasses import dataclass
 from typing import List, Tuple
 
 import gym
@@ -32,102 +33,62 @@ from phonebot.core.common.logger import get_default_logger
 logger = get_default_logger()
 
 
+@dataclass
 class PybulletSimulatorSettings(Settings):
-    """
-    TODO(ycho): Consider refactoring `Settings` into a `dataclass`.
-    """
-    debug: bool
-    debug_axis_scale: float
-    debug_inertia: bool
-    debug_midair: bool
-    debug_contact: bool
-    debug_follow_camera: bool
-    debug_solver: bool
-    debug_servo: bool
-    debug_show_trajectory: bool
 
-    gravity: float
-    timestep: float
-    max_solver_iter: int
-    solver_residual_threshold: float
-    realtime: bool
-    timestep_range: Tuple[float, float]
+    debug: bool = False
+    debug_axis_scale: float = 0.02
+    debug_inertia: bool = True
+    debug_midair: bool = False
+    debug_contact: bool = False
+    debug_follow_camera: bool = True
+    debug_solver: bool = False
+    debug_servo: bool = False
+    debug_show_trajectory: bool = True
 
-    render: bool
+    # Physics Settings
+    gravity: float = -9.81
+    # NOTE(yycho0108): chosen somewhat arbitrarily.
+    # self.timestep = (1.0 / 240)  # NOTE(yycho0108): pybullet default
+    timestep: float = 0.008
+    max_solver_iter: int = 4096
+    solver_residual_threshold: float = 1e-6
+    realtime: bool = False
+    timestep_range: Tuple[float, float] = (0.001, 0.016)
+
+    # Render settings
+    render: bool = True
     # TODO(yycho0108): Ugly parameter... derive this from phonebot dimensions.
-    record_file: str
-    show_pybullet_gui: bool
+    record_file: str = ''
+    show_pybullet_gui: bool = False
 
-    use_torque_control: bool
-    servo_kp: float
-    servo_ki: float
-    servo_kd: float
-    joint_friction_force: float
-    clip_torque: bool
-    clip_velocity: bool
+    # Servo motor parameters.
+    # TODO(ycho): Currrent servo motor based on PID
+    # Does not work (esp. wrt certain timestep settings).
+    # Maybe a higher fidelity motor model would work better,
+    # but for now recommended to disable by default.
+    use_torque_control: bool = False
+    servo_kp: float = 0.02
+    servo_ki: float = 1.0
+    servo_kd: float = 0.002
+    joint_friction_force: float = 0.0
+    clip_torque: bool = False
+    clip_velocity: bool = False
 
-    lateral_friction: float
-    spinning_friction: float
-    rolling_friction: float
-    max_num_steps: int
-    zero_at_nominal: bool
-    normalize_action_space: bool
-    random_timestep: bool
-    start: bool
+    # Friction parameters.
+    # TODO(ycho): Figure out if these params are reasonable.
+    lateral_friction: float = 0.99
+    spinning_friction: float = 0.01
+    rolling_friction: float = 0.01
 
-    def __init__(self, **kwargs):
-        # Debugging parameters ...
-        self.debug = True
-        self.debug_axis_scale = 0.02
-        self.debug_inertia = True
-        self.debug_midair = False
-        self.debug_contact = False
-        self.debug_follow_camera = True
-        self.debug_solver = False
-        self.debug_servo = False
-        self.debug_show_trajectory = True
+    # Other environment specific parameters (config)
+    max_num_steps: int = 1000
+    zero_at_nominal: bool = True
+    normalize_action_space: bool = True
+    random_timestep: bool = False
+    start: bool = True
 
-        # Physics settings
-        self.gravity = -9.81
-        # NOTE(yycho0108): chosen somewhat arbitrarily.
-        # self.timestep = (1.0 / 240)  # NOTE(yycho0108): pybullet default
-        self.timestep = 0.008
-        self.max_solver_iter = 4096
-        self.solver_residual_threshold = 1e-6
-        self.realtime = False
-        self.timestep_range = (0.001, 0.016)
-
-        # Render settings
-        self.render = True
-        self.record_file = ''
-        self.show_pybullet_gui = False
-
-        # Servo motor parameters.
-        # TODO(ycho): Currrent servo motor based on PID
-        # Does not work (esp. wrt certain timestep settings).
-        # Maybe a higher fidelity motor model would work better,
-        # but for now recommended to disable by default.
-        self.use_torque_control = False
-        self.servo_kp = 0.02
-        self.servo_ki = 1.0
-        self.servo_kd = 0.002
-        self.joint_friction_force = 0.0
-        self.clip_velocity = False
-        self.clip_torque = False
-
-        # Friction parameters.
-        # TODO(ycho): Figure out if these params are reasonable.
-        self.lateral_friction = 0.99
-        self.spinning_friction = 0.01
-        self.rolling_friction = 0.01
-
-        # Other environment specific parameters (config)
-        self.max_num_steps = 1000
-        self.zero_at_nominal = True
-        self.normalize_action_space = True
-        self.random_timestep = False
-        self.start = True
-
+    def __post_init__(self, **kwargs):
         super().__init__(**kwargs)
 
     @property
@@ -154,6 +115,14 @@ class PybulletPhonebotEnv(gym.Env):
                  sim_settings: PybulletSimulatorSettings = None,
                  phonebot_settings: PhonebotSettings = None
                  ):
+        """A PybulletPhonebotEnv gym environment
+
+        Args:
+            sim_settings (PybulletSimulatorSettings, optional): Settings
+                for the Pybullet simulator. Defaults to None.
+            phonebot_settings (PhonebotSettings, optional): Settings to
+                describe PhoneBot dimensions. Defaults to None.
+        """
         super().__init__()
         if sim_settings is None:
             sim_settings = PybulletSimulatorSettings()
@@ -171,7 +140,6 @@ class PybulletPhonebotEnv(gym.Env):
         # Initialize runtime variables.
         self.sim_id = -1
         self.phonebot_id = -1
-        config = self.config
         s = self.settings
         # FIXME(ycho): max_i set to something that feels reasonable ...
         # hardcoded.
@@ -186,19 +154,16 @@ class PybulletPhonebotEnv(gym.Env):
         self.time = 0.0
 
         # Sensor + task
-        self.sensor_ = PybulletPhonebotSensor(True, True, True, True,
+        self._sensor = PybulletPhonebotSensor(True, True, True, True,
                                               self.config.active_joint_names,
                                               self.config.passive_joint_names,
                                               self._index_from_joint)
-        # self.task_ = ForwardVelocityTask(
-        # self.sensor_, ForwardVelocityTaskSettings())
-        # self.task_ = HoldVelocityTask(self.sensor_)
+
+        # Change this task and settings to change the RL agent target and
+        # environment initialization
         self.task_ = CounterClockwiseRotationTask(
-            self.sensor_, CounterClockwiseRotationTaskSettings())
+            self._sensor, CounterClockwiseRotationTaskSettings())
         self.task_.set_rng(self.np_random)
-        # self.task_ = ReachPositionTask(ReachPositionTaskSettings(
-        # max_time=self.settings.max_num_steps * self.settings.timestep),
-        # self.sensor_)
 
         if sim_settings.normalize_action_space:
             self.action_space = gym.spaces.Box(-1.0, 1.0, shape=(8,))
@@ -209,8 +174,8 @@ class PybulletPhonebotEnv(gym.Env):
         # Configure observation space as a combination of sensor+task.
         # FIXME(ycho): NOT a generalized construct, specific to
         # our current sensor + task combo.
-        s_lo = self.sensor_.space.low
-        s_hi = self.sensor_.space.high
+        s_lo = self._sensor.space.low
+        s_hi = self._sensor.space.high
         t_lo = self.task_.space.low
         t_hi = self.task_.space.high
         lo = np.r_[s_lo, t_lo]
@@ -223,11 +188,23 @@ class PybulletPhonebotEnv(gym.Env):
             self.start()
 
     @ property
-    def sensor(self):
-        return self.sensor_
+    def sensor(self) -> PybulletPhonebotSensor:
+        """The PhoneBot sensor
+
+        Returns:
+            PybulletPhonebotSensor: the environment PhoneBot sensor
+        """
+        return self._sensor
 
     def build(self, model: PhonebotModel) -> PybulletBuilder:
-        """ Finalize model """
+        """Build the PhoneBot model
+
+        Args:
+            model (PhonebotModel): A given PhonebotModel
+
+        Returns:
+            PybulletBuilder: The finalized builder
+        """
         joints, links = model.build()
         builder = PybulletBuilder()
         for joint in joints:
@@ -250,6 +227,8 @@ class PybulletPhonebotEnv(gym.Env):
         return self.builder.link_from_index_[index]
 
     def start(self):
+        """Start the simulator
+        """
         # Unroll parameters.
         builder = self.builder
         config = self.config
@@ -275,8 +254,8 @@ class PybulletPhonebotEnv(gym.Env):
             physicsClientId=sim_id
         )
 
+        # Add ground plane @ z=0.
         if True:
-            # Add ground plane @ z=0.
             plane = pb.createCollisionShape(
                 pb.GEOM_PLANE, physicsClientId=sim_id)
             plane_index = pb.createMultiBody(0, plane, physicsClientId=sim_id)
@@ -455,8 +434,12 @@ class PybulletPhonebotEnv(gym.Env):
         self.task_.set_rng(self.np_random)
         return [seed]
 
-    def reset(self):
-        # Reset joint values to approximately nominal stance.
+    def reset(self) -> np.ndarray:
+        """Reset joint values to approximately nominal stance.
+
+        Returns:
+            np.ndarray: Sensor sense vector concatenated with the target vector
+        """
         # FIXME(yycho0108): store nominal_joint_angles in `PhonebotSettings`.
         config = self.config
         builder = self.builder
@@ -517,7 +500,7 @@ class PybulletPhonebotEnv(gym.Env):
         self.pid_.reset()
 
         # Reset sensors.
-        self.sensor_.reset(sim_id, phonebot_id)
+        self._sensor.reset(sim_id, phonebot_id)
 
         # NOTE(ycho): Task will be allowed to reset the current state as well.
         # Therefore, explicitly return the result from self.sense() after
@@ -597,10 +580,29 @@ class PybulletPhonebotEnv(gym.Env):
         #    'cannot be changed during runtime.')
         return
 
-    def sense(self):
-        return np.r_[self.sensor_.sense(), self.task_.target]
+    def sense(self) -> np.ndarray:
+        """Return the sensor readings and the task target
 
-    def step(self, action):
+        Returns:
+            np.ndarray: A vector of the sensor reading concatenated with the
+                task target.
+        """
+        return np.r_[self._sensor.sense(), self.task_.target]
+
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+        """Step the simulation and take the given action
+
+        Args:
+            action (np.ndarray): An array of Phonebot actions to take
+
+        Returns:
+            Tuple[np.ndarray, float, bool, Dict[str, Any]]: A Tuple comprising:
+                (np.ndarray): The current state vector
+                (float): The reward for the current state
+                (bool): True if Done, False otherwise
+                (Dict[str, Any]): Extra info dictionary.
+        """
+
         # Bring relevant params into current scope.
         config = self.config
         builder = self.builder
@@ -751,7 +753,6 @@ class PybulletPhonebotEnv(gym.Env):
             _, jv, _, jt = zip(*pb.getJointStates(
                 phonebot_id, active_indices, physicsClientId=sim_id))
 
-            """
             if False:
                 joint_states = pb.getJointStates(
                     phonebot_id,
@@ -769,7 +770,7 @@ class PybulletPhonebotEnv(gym.Env):
                                         precision=8,
                                         separator=' ')[1:-1]
                     f.write('{}\n'.format(s))
-            """
+
             max_energy_cost = 8 * 5.0 * 0.65 * self.timestep
             energy_cost = np.abs(np.dot(jv, jt)) * self.timestep
             energy_cost /= max_energy_cost
@@ -786,8 +787,8 @@ class PybulletPhonebotEnv(gym.Env):
         )
 
         if self.settings.render and self.settings.debug_show_trajectory:
-            x0 = state0[self.sensor_.slice_base_position][:3].copy()
-            x1 = state1[self.sensor_.slice_base_position][:3].copy()
+            x0 = state0[self._sensor.slice_base_position][:3].copy()
+            x1 = state1[self._sensor.slice_base_position][:3].copy()
 
             # Project to ground for a prettier visualization.
             # NOTE(ycho): Workaround until we train a new agent.
@@ -832,14 +833,14 @@ register(
 )
 
 # NOTE(ycho): Disabling subprocessing proxy until better package stucture is found
-#from phonebot.sim.common.subproc import subproc
-#@subproc
-#class PybulletPhonebotSubprocEnv(PybulletPhonebotEnv):
+#from pyphonebot_extra.sim.common.subproc import subproc
+# @subproc
+# class PybulletPhonebotSubprocEnv(PybulletPhonebotEnv):
 #    pass
 #
-#register(
+# register(
 #    id='phonebot-pybullet-headless-subproc-v0',
 #    entry_point='phonebot.sim.pybullet.simulator:PybulletPhonebotSubprocEnv',
 #    kwargs={'sim_settings': PybulletSimulatorSettings(
 #        render=False), 'phonebot_settings': None}
-#)
+# )

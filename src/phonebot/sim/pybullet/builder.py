@@ -21,28 +21,35 @@ class PybulletBuilder(object):
     """
 
     def __init__(self):
-        self.joint_map_ = {ModelJoint.REVOLUTE: pb.JOINT_REVOLUTE,
-                           ModelJoint.FIXED: pb.JOINT_FIXED,
-                           ModelJoint.PRISMATIC: pb.JOINT_PRISMATIC}
+        self._joint_map = {ModelJointType.REVOLUTE: pb.JOINT_REVOLUTE,
+                           ModelJointType.FIXED: pb.JOINT_FIXED,
+                           ModelJointType.PRISMATIC: pb.JOINT_PRISMATIC}
         # Bookkeeping for input
-        self.links_ = []
-        self.joints_ = []
+        self._links = []
+        self._joints = []
         # CreateMultibody() args
-        self.model_ = {}
+        self._model = {}
         # Bookkeeping for shape instances
-        self.collision_shape_indices_ = {}
-        self.visual_shape_indices_ = {}
+        self._collision_shape_indices = {}
+        self._visual_shape_indices = {}
         # Bookkeeping for cross name<->index referencing
-        self.index_from_link_ = {}
-        self.index_from_joint_ = {}
-        self.link_from_index_ = {}
-        self.joint_from_index_ = {}
+        self._index_from_link = {}
+        self._index_from_joint = {}
+        self._link_from_index = {}
+        self._joint_from_index = {}
 
     def _get_link_by_name(self, name: str) -> ModelLink:
-        """ Temporary utility function to get a link by its name. """
-        if name == self.root_.name:
-            return self.root_
-        for link in self.links_:
+        """Utility funciton to get a link from a name
+
+        Args:
+            name (str): The name of the link
+
+        Returns:
+            ModelLink: The model link
+        """
+        if name == self._root.name:
+            return self._root
+        for link in self._links:
             if link.name == name:
                 return link
         logging.warn('Link {} not found'.format(name))
@@ -50,19 +57,40 @@ class PybulletBuilder(object):
 
     @lru_cache(maxsize=128)
     def _resolve_pose(self, pose: ModelPose) -> Transform:
-        """ Resolve framed pose relative to the global root frame. """
+        """Resolve framed pose relative to the global root frame.
+
+        Args:
+            pose (ModelPose): The relative model pose
+
+        Returns:
+            Transform: The global transform of the pose
+        """
         # Reached end!
-        if pose.frame == self.root_.name:
+        if pose.frame == self._root.name:
             return pose.pose
         link = self._get_link_by_name(pose.frame)
         parent_pose = self._resolve_pose(link.pose)
         return parent_pose * pose.pose
 
     def _get_geom(self, geom: ModelGeometry,
-                  pose: Transform, sim_id, col=False):
-        """
-        Instantiate pybullet geometry from a declarative `ModelGeometry` class.
-        Deals with slightly different signatures/conventions while interfacing with pybullet.
+                  pose: Transform, sim_id: int, col: bool = False):
+        """Instantiate pybullet geometry from a declarative `ModelGeometry`
+        class. Deals with slightly different signatures/conventions while
+        interfacing with pybullet.
+
+        Args:
+            geom (ModelGeometry): The geometry to instantiate
+            pose (Transform): The relative pose of the geometry to the link
+                frame.
+            sim_id (int): The id of the physics client server
+            col (bool, optional): If True, then return a collision shape. Else,
+                return a visual geometry. Defaults to False.
+
+        Raises:
+            ValueError: Unsupported Geometry
+
+        Returns:
+            functools.partial: A callable to get the collision or visual shape
         """
         cfun = partial(pb.createCollisionShape, physicsClientId=sim_id)
         vfun = partial(pb.createVisualShape, physicsClientId=sim_id)
@@ -112,8 +140,13 @@ class PybulletBuilder(object):
                 )
         raise ValueError('Unsupported Geometry : {}'.format(geom))
 
-    def _build_geom(self, sim_id):
-        for link in [self.root_] + self.links_:
+    def _build_geom(self, sim_id: int):
+        """Build the model in a given physics client
+
+        Args:
+            sim_id (int): The id of the physics client server.
+        """
+        for link in [self._root] + self._links:
             geom = link.geometry
             if geom is None:
                 continue
@@ -121,103 +154,135 @@ class PybulletBuilder(object):
             # `geom` frame assumed to be attached to link pose.
             # Now that pybullet link position was moved to joint origin,
             # we need to re-set the geometry pose relative to joint origin.
-            index = self.index_from_link_[link.name]
+            index = self._index_from_link[link.name]
             if index >= 0:
                 pose = (
-                    self._resolve_pose(self.joints_[index].pose).inverse() *
+                    self._resolve_pose(self._joints[index].pose).inverse() *
                     self._resolve_pose(link.pose))
             else:
                 pose = Transform.identity()
 
-            if geom.name not in self.visual_shape_indices_:
+            if geom.name not in self._visual_shape_indices:
                 # NOTE(ycho): pose relative to link frame,
                 # which is unfortunately the joint frame
                 index = self._get_geom(geom, pose, sim_id)
-                self.visual_shape_indices_[geom.name] = index
-            if geom.name not in self.collision_shape_indices_:
+                self._visual_shape_indices[geom.name] = index
+            if geom.name not in self._collision_shape_indices:
                 index = self._get_geom(geom, pose, sim_id, True)
-                self.collision_shape_indices_[geom.name] = index
+                self._collision_shape_indices[geom.name] = index
 
     def _resolve_root(self):
-        links = [link.name for link in self.links_]
-        childs = [joint.child for joint in self.joints_]
+        """The root is a link with no parent. This sets the root to the current
+        root link.
+
+        Raises:
+            ValueError: Number of possible root elements is not exactly one.
+        """
+        links = [link.name for link in self._links]
+        childs = [joint.child for joint in self._joints]
         roots = set.difference(set(links), set(childs))
         if len(roots) != 1:
             raise ValueError(
                 'Number of possible root elements is not exactly one : {}'.format(
                     len(roots)))
         root = list(roots)[0]
-        for link in self.links_:
+        for link in self._links:
             if link.name == root:
-                self.root_ = link
+                self._root = link
                 break
 
     def _add_root(self):
-        link = self.root_
-        self.model_['baseMass'] = link.mass
-        self.model_['baseCollisionShapeIndex'] = link.geometry
-        self.model_['baseVisualShapeIndex'] = link.geometry
-        self.model_['basePosition'] = link.pose.pose.position
-        self.model_['baseOrientation'] = link.pose.pose.rotation.to_quaternion()
-        self.model_[
+        """Sets the current root of the model
+        """
+        link = self._root
+        self._model['baseMass'] = link.mass
+        self._model['baseCollisionShapeIndex'] = link.geometry
+        self._model['baseVisualShapeIndex'] = link.geometry
+        self._model['basePosition'] = link.pose.pose.position
+        self._model['baseOrientation'] = link.pose.pose.rotation.to_quaternion()
+        self._model[
             'baseInertialFramePosition'] = link.inertia.pose.pose.position
-        self.model_[
+        self._model[
             'baseInertialFrameOrientation'] = link.inertia.pose.pose.rotation.to_quaternion()
 
-    def _get_collision_shape_index(self, geometry):
-        if geometry is None:
-            return -1
-        return self.collision_shape_indices_[geometry.name]
+    def _get_collision_shape_index(self, geometry: ModelGeometry) -> int:
+        """Returns the index of the collision model geometry
 
-    def _get_visual_shape_index(self, geometry):
+        Args:
+            geometry (ModelGeometry): The model geometry of the collision shape
+
+        Returns:
+            int: The index of the collision shape
+        """
         if geometry is None:
             return -1
-        return self.visual_shape_indices_[geometry.name]
+        return self._collision_shape_indices[geometry.name]
+
+    def _get_visual_shape_index(self, geometry: ModelGeometry) -> int:
+        """Returns the index of the visual model geometry
+
+        Args:
+            geometry (ModelGeometry): The model geometry of the visual shape
+
+        Returns:
+            int: The index of the visual shape
+        """
+        if geometry is None:
+            return -1
+        return self._visual_shape_indices[geometry.name]
 
     def _sort(self):
-        links = [None for _ in range(len(self.links_))]
-        joints = [None for _ in range(len(self.joints_))]
-        for i in range(len(self.joints_)):
-            joint = self.joints_[i]
+        """Sort the links and joints by parent-child relationships
+        """
+        links = [None for _ in range(len(self._links))]
+        joints = [None for _ in range(len(self._joints))]
+        for i in range(len(self._joints)):
+            joint = self._joints[i]
             index = None
-            for j in range(len(self.links_)):
-                if self.links_[j].name == joint.child:
+            for j in range(len(self._links)):
+                if self._links[j].name == joint.child:
                     index = j
                     break
 
             assert not index is None, 'index for {} not found'.format(
                 joints[i])
-            links[i] = self.links_[index]
-            joints[i] = self.joints_[i]
+            links[i] = self._links[index]
+            joints[i] = self._joints[i]
 
-        self.links_ = links
-        self.joints_ = joints
+        self._links = links
+        self._joints = joints
 
         # Joint <-> Index maps.
-        self.index_from_link_ = {l.name: i for i, l in enumerate(self.links_)}
-        self.index_from_link_[self.root_.name] = -1
-        self.link_from_index_ = {v: k for k,
-                                 v in self.index_from_link_.items()}
-        self.index_from_joint_ = {
-            j.name: i for i, j in enumerate(self.joints_)}
-        self.joint_from_index_ = {v: k for k,
-                                  v in self.index_from_joint_.items()}
+        self._index_from_link = {l.name: i for i, l in enumerate(self._links)}
+        self._index_from_link[self._root.name] = -1
+        self._link_from_index = {v: k for k,
+                                 v in self._index_from_link.items()}
+        self._index_from_joint = {
+            j.name: i for i, j in enumerate(self._joints)}
+        self._joint_from_index = {v: k for k,
+                                  v in self._index_from_joint.items()}
 
     def add_link(self, link: ModelLink):
-        self.links_.append(link)
+        """Add a link to the builder list of links
+
+        Args:
+            link (ModelLink): The model link to add
+        """
+        self._links.append(link)
 
     def _add_link(self, link: ModelLink):
-        model = self.model_
-        index = self.index_from_link_[link.name]
-        joint = self.joints_[index]
+
+        model = self._model
+        index = self._index_from_link[link.name]
+        joint = self._joints[index]
         model['linkMasses'][index] = link.mass
         model['linkCollisionShapeIndices'][index] = link.geometry
         model['linkVisualShapeIndices'][index] = link.geometry
 
         # Get information about the parent to resolve relative transforms.
         parent_link = self._get_link_by_name(joint.parent)
-        parent_index = self.index_from_link_[parent_link.name]
-        parent_joint = self.joints_[parent_index]
+        parent_index = self._index_from_link[parent_link.name]
+        parent_joint = self._joints[parent_index]
 
         # NOTE(ycho): Parent pose convention deviates from pybullet documentation
         # that indicates joint frames are defined relative to
@@ -240,22 +305,28 @@ class PybulletBuilder(object):
         model['linkInertialFrameOrientations'][index] = inertia_pose.rotation.to_quaternion()
 
     def add_joint(self, joint: ModelJoint):
-        """ Add a joint to model specification. """
-        self.joints_.append(joint)
+        """Add a joint to model specification.
+
+
+        Args:
+            joint (ModelJoint): The joint to add to the model.
+        """
+        self._joints.append(joint)
 
     def _add_joint(self, joint: ModelJoint):
-        model = self.model_
-        index = self.index_from_joint_[joint.name]
-        model['linkJointTypes'][index] = self.joint_map_[joint.type]
+        model = self._model
+        index = self._index_from_joint[joint.name]
+        model['linkJointTypes'][index] = self._joint_map[joint.type]
         axis = joint.axis
         model['linkJointAxis'][index] = axis
-        model['linkParentIndices'][index] = self.index_from_link_[
+        model['linkParentIndices'][index] = self._index_from_link[
             joint.parent] + 1
 
     def _preprocess(self):
-        """ Fix missing information from the model specification """
+        """Fix missing information from the model specification
+        """
         # Default inertial frame to link frame.
-        for link in [self.root_] + self.links_:
+        for link in [self._root] + self._links:
             if link.inertia.pose.frame is None:
                 logging.debug(
                     'Missing {} inertial frame set to link by default'.format(
@@ -269,19 +340,20 @@ class PybulletBuilder(object):
     def finalize(self):
         """
         Finalize model definition.
+
+        Validation:
+            Number of links should be exactly identical to number of joints.
+            This is because our model definition is a tree - at least in
+            pybullet. Cycles are resolved in a model-specific postprocessing
+            step.
         """
         # Determine the root link.
         self._resolve_root()
-        self.links_ = [link for link in self.links_ if (link != self.root_)]
+        self._links = [link for link in self._links if (link != self._root)]
 
-        # Validation:
-        # Number of links should be exactly identical to number of joints.
-        # This is because our model definition is a tree - at least in
-        # pybullet. Cycles are resolved in a model-specific postprocessing
-        # step.
-        if (len(self.links_) != len(self.joints_)):
+        if (len(self._links) != len(self._joints)):
             msg = '# Links != # joints : ({}!={})'.format(
-                len(self.links_), len(self.joints_))
+                len(self._links), len(self._joints))
             raise ValueError(msg)
 
         # Process model specification to work with pybullet.
@@ -289,21 +361,26 @@ class PybulletBuilder(object):
         self._sort()
 
         # Finally, build the model (== args to createMultiBody())
-        self.model_ = defaultdict(
-            lambda: [None for _ in range(len(self.links_))])
+        self._model = defaultdict(
+            lambda: [None for _ in range(len(self._links))])
         self._add_root()
-        for link in self.links_:
+        for link in self._links:
             self._add_link(link)
-        for joint in self.joints_:
+        for joint in self._joints:
             self._add_joint(joint)
 
-        return dict(self.model_)
+        return dict(self._model)
 
-    def create(self, sim_id):
+    def create(self, sim_id: int) -> int:
+        """Instantiate the model configuration to online simulation.
+
+        Args:
+            sim_id (int): The id of the physics client server.
+
+        Returns:
+            int: The unique id of the robot body
         """
-        Instantiate the model configuration to online simulation.
-        """
-        model = self.model_
+        model = self._model
 
         # Add Geometry indices, which are only available
         # when connected to the backend simulator.
@@ -311,9 +388,9 @@ class PybulletBuilder(object):
 
         # Remap to created indices from specifications.
         model['baseCollisionShapeIndex'] = self._get_collision_shape_index(
-            self.root_.geometry)
+            self._root.geometry)
         model['baseVisualShapeIndex'] = self._get_visual_shape_index(
-            self.root_.geometry)
+            self._root.geometry)
         model['linkCollisionShapeIndices'] = list(map(
             self._get_collision_shape_index,
             model['linkCollisionShapeIndices']))
@@ -331,11 +408,11 @@ class PybulletBuilder(object):
 
         # TODO(ycho): Enable after bullet3/PR#3238
         for i in range(len(masses)):
-           model['linkNames'][i] = self.link_from_index_[i]
+            model['linkNames'][i] = self._link_from_index[i]
 
         # Actually create the model based on the temporary definition.
         robot = pb.createMultiBody(
-            **self.model_,
+            **self._model,
             flags=pb.URDF_USE_SELF_COLLISION | pb.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT,
             physicsClientId=sim_id)
 
@@ -356,22 +433,22 @@ class PybulletBuilder(object):
         joint_from_index = {}
         link_from_index = {}
         for i0, i1 in zip(old_indices, new_indices):
-            link_from_index[i1] = self.link_from_index_[i0]
-            joint_from_index[i1] = self.joint_from_index_[i0]
+            link_from_index[i1] = self._link_from_index[i0]
+            joint_from_index[i1] = self._joint_from_index[i0]
 
         # Cache the results and also store the inverse map.
-        self.joint_from_index_ = joint_from_index
-        self.link_from_index_ = link_from_index
-        self.index_from_joint_ = {v: k for k,
-                                  v in self.joint_from_index_.items()}
-        self.index_from_link_ = {v: k for k,
-                                 v in self.link_from_index_.items()}
+        self._joint_from_index = joint_from_index
+        self._link_from_index = link_from_index
+        self._index_from_joint = {v: k for k,
+                                  v in self._joint_from_index.items()}
+        self._index_from_link = {v: k for k,
+                                 v in self._link_from_index.items()}
 
         # Add the root body as well, which is considered separately
         # From other links. Again, this is mostly to follow bullet's
         # convention.
         # TODO(ycho): Hard-coding `body` here is probably not the best idea.
-        self.index_from_link_['body'] = -1
-        self.link_from_index_[-1] = 'body'
+        self._index_from_link['body'] = -1
+        self._link_from_index[-1] = 'body'
         self.robot_ = robot
         return robot

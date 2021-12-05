@@ -10,35 +10,57 @@ from typing import List, Dict
 from phonebot.core.common.settings import Settings
 
 
-def get_parser(settings: Settings, root: argparse.ArgumentParser, name: str = '') -> argparse.ArgumentParser:
+def build_parser(settings: Settings,
+                 root: argparse.ArgumentParser,
+                 name: str = ''):
+    """Recursive function which adds an argument parsers to a provided root
+    parser which parses all settings configured in a Settings object. If another
+    Settings instance is a value, then a parser group is made with that Settings
+    object and added to the parser as well.
+
+    Args:
+        settings (Settings): The Settings object to get the argument parser for
+        root (argparse.ArgumentParser): The argument parser to add additional
+            parsers onto.
+        name (str, optional): The name of the current parser group. Defaults to
+            ''.
+    """
     group = root.add_argument_group(name, settings.__doc__)
-    parser = argparse.ArgumentParser(description=settings.__doc__)
     for key, value in settings.__dict__.items():
         if isinstance(value, Settings):
             if len(name) <= 0:
-                get_parser(value, root, key)
+                build_parser(value, root, key)
             else:
-                get_parser(value, root, '{}.{}'.format(name, key))
+                build_parser(value, root, '{}.{}'.format(name, key))
         else:
             type_hint = settings.__annotations__[key]
             # TODO(yycho0108): Remove this workaround.
             parse_fn = str if (type_hint == str) else json.loads
             if len(name) <= 0:
                 group.add_argument(F'--{key}',
-                                   default=value, type=parse_fn, help=F'{key}({type_hint})')
+                                   default=value, type=parse_fn,
+                                   help=F'{key}({type_hint})')
             else:
                 group.add_argument(F'--{name}.{key}',
-                                   default=value, type=parse_fn, help=F'{key}({type_hint})')
-    return parser
+                                   default=value, type=parse_fn,
+                                   help=F'{key}({type_hint})')
 
 
-def update_settings_from_arguments(settings: Settings):
-    """ Update settings from arguments (in-place) """
+def update_settings_from_arguments(settings: Settings) -> Settings:
+    """Update settings from arguments (in-place)
+
+    Args:
+        settings (Settings): Update the values of the Settings argument by
+            parsing the arguments passed from command line.
+
+    Returns:
+        Settings: The updated Settings object.
+    """
 
     # Setup settings and arguments.
     root = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser = get_parser(settings, root)
+    build_parser(settings, root)
     argcomplete.autocomplete(root)
 
     # Parse arguments and update in-place.
@@ -48,7 +70,7 @@ def update_settings_from_arguments(settings: Settings):
     return settings
 
 
-class SampleData(object):
+class SampleData():
     def __init__(self):
         self.x = 15
 
@@ -95,7 +117,7 @@ def main():
     # 1 - Instantiate (optionally, from file)
     settings = RootSettings()
     # settings = RootSettings.from_file('/tmp/settings.json')
-    print(RootSettings.from_string('{}'.format(settings)))
+    # print(RootSettings.from_string(f'{settings}'))
 
     # 2 - Load from file
     # settings.load('/tmp/settings.json')
@@ -103,7 +125,7 @@ def main():
     # 3 - Prepare argparse
     root = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser = get_parser(settings, root)
+    build_parser(settings, root)
     argcomplete.autocomplete(root)
 
     # 4 - Commit argparse results
