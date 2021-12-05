@@ -95,11 +95,11 @@ def update_angles(graph: PhonebotGraph,
     """Update the angles of the PhonebotGraph using 
 
     Args:
-        graph (PhonebotGraph): [description]
-        hip_angle_a (float): [description]
-        hip_angle_b (float): [description]
-        stamp (float): [description]
-        config (PhonebotSettings): [description]
+        graph (PhonebotGraph): The PhonebotGraph to update the angles of.
+        hip_angle_a (float): The angle to set for hip a.
+        hip_angle_b (float): The angle to set for hip b.
+        stamp (float): The time stamp (seconds).
+        config (PhonebotSettings): The PhonebotSettings object to use to get
     """
     # Initialize angles to 0.
     for leg_prefix in config.order:
