@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""Point tracker demo.
+
+Creates a PhonebotViewer in which the phonebot tracks a point
+perpetually revolving around the z axis.
+"""
 
 import sys
 import zlib

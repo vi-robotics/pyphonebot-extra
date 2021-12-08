@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
-"""Demo the PhonebotViewer by constructing a PhonebotGraph and updating the
-transforms of the legs."""
+"""Graph Viewer demo.
+
+Renders a phonebot into an OpenGL-based window, looping thruogh joint
+angles; i.e., we construct a PhonebotGraph and update the transforms of
+the legs.
+"""
+
 import time
 import numpy as np
 
@@ -9,7 +14,7 @@ from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph.graph_utils import (
     solve_knee_angle, solve_inverse_kinematics, get_graph_geometries,
-    initialize_graph_zero)
+    initialize_graph_zero, initialize_graph_nominal)
 from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
 from phonebot.vis.viewer.viewer_base import HandleHelper
 
@@ -27,7 +32,8 @@ def main():
     stamp = time.time()
 
     # Initialize angles to 0.
-    initialize_graph_zero(graph, stamp, config)
+    # initialize_graph_zero(graph, stamp, config)
+    initialize_graph_nominal(graph, stamp, config)
 
     # Sweep angles for both joints, run ik and visualize results.
     for hip_angle_a in np.linspace(0.0, 2 * np.pi, 20):
@@ -59,9 +65,9 @@ def main():
                     stamp, knee_angle_b)
 
                 pos_a = graph.get_transform(
-                    foot_a, 'body', stamp).position
+                    foot_a, F'{leg_prefix}_leg_origin', stamp).position
                 pos_b = graph.get_transform(
-                    foot_b, 'body', stamp).position
+                    foot_b, F'{leg_prefix}_leg_origin', stamp).position
                 print(f'foot_positions : {pos_a} == {pos_b}')
                 ik_solution = solve_inverse_kinematics(
                     graph, stamp, leg_prefix, pos_a, config=config)

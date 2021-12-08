@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
+"""
+Inverse kinematics demo, for moving phonebot legs to a designated position
+as specified by the user (through mouse `pick` event).
+All standard controls for GLViewWidget applies, plus RMB for picking.
+"""
 
 import numpy as np
 import time
+import logging
 
 import cv2
 import pyqtgraph as pg
@@ -142,6 +148,9 @@ def update_angles(graph: PhonebotGraph, hip_angle_a: float,
 
 
 def main():
+    logging.basicConfig(level=logging.WARN)
+    logging.root.setLevel(level=logging.WARN)
+
     config = PhonebotSettings()
     config.queue_size = 1
     graph = PhonebotGraph(config)
@@ -164,12 +173,12 @@ def main():
                 pnew_leg, config)
             state['angles'] = [ja, jb]
         except Exception as e:
-            print(e)
+            logging.error(e)
 
     viewer.on_event('pick', on_pick)
     handler = HandleHelper(viewer)
 
-    # Arbitrary stamp.
+    # Initialize from arbitrary stamp.
     stamp = time.time()
     state['angles'] = [config.nominal_hip_angle, config.nominal_hip_angle]
     update_angles(graph, state['angles'][0], state['angles'][1], stamp, config)

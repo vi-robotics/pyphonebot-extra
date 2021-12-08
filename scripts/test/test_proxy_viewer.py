@@ -7,10 +7,6 @@ from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
 from phonebot.vis.viewer._pyqtgraph.pyqtgraph_handlers import Plot2DHandler
 
 
-def pack(*args, **kwds):
-    """Utility for grouping (args,kwds)"""
-    return (args, kwds)
-
 
 def main():
     viewer = PhonebotViewer()
@@ -21,7 +17,6 @@ def main():
     while True:
         x = np.linspace(-np.pi, np.pi)
         y = np.random.normal(size=len(x))
-        # viewer.handle(dict(plot=pack(x=x, y=y)))
         handler.plot(x=x, y=y)
         time.sleep(0.01)
     viewer.stop()

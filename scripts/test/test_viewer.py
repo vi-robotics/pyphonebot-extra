@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""
+Quick and simple script to see if the viewer is functional.
+FIXME(ycho): Not an actual test, more like an example.
+"""
 
 import time
 import numpy as np
@@ -29,11 +33,6 @@ class KeyCameraHandler:
 
     def __call__(self, dy, dz):
         self.viewer.widget_.orbit(dz, dy)
-
-
-def pack(*args, **kwds):
-    """Utility for grouping (args,kwds)"""
-    return (args, kwds)
 
 
 def main():

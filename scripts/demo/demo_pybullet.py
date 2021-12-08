@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
+"""Pybullet demo for a walking phonebot."""
 
 from collections import namedtuple, defaultdict, deque
 import argparse
@@ -18,7 +19,7 @@ from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
 from phonebot.vis.viewer.viewer_base import HandleHelper
 from phonebot.vis.viewer._pyqtgraph.pyqtgraph_handlers import LineStripHandler
 
-from phonebot.sim.common.model import *
+# from phonebot.sim.common.model import *
 from phonebot.sim.common.phonebot_model import PhonebotModel
 from phonebot.sim.pybullet.urdf_editor import export_urdf
 from phonebot.sim.pybullet.builder import PybulletBuilder
@@ -71,6 +72,7 @@ def main():
     env.seed(0)
     env.reset()
 
+    # NOTE(ycho): why is `1.0` here a hardcoded parameter?
     agent = TrajectoryAgentGraph(graph, 1.0, config)
     h = 0
     stamp = 0.0
