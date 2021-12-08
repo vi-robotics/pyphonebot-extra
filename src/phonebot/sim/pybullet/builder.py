@@ -11,7 +11,6 @@ import logging
 from phonebot.core.common.math.transform import Transform, Rotation, Position
 
 from phonebot.sim.common.model import *
-from phonebot.sim.pybullet.urdf_editor import export_urdf
 
 
 class PybulletBuilder(object):

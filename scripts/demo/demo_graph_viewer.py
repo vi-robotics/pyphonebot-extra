@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Graph Viewer demo.
 
-Renders a phonebot into an OpenGL-based window, looping thruogh joint
+Renders a phonebot into an OpenGL-based window, looping through joint
 angles; i.e., we construct a PhonebotGraph and update the transforms of
 the legs.
 """
@@ -14,7 +14,7 @@ from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph.graph_utils import (
     solve_knee_angle, solve_inverse_kinematics, get_graph_geometries,
-    initialize_graph_zero, initialize_graph_nominal)
+    initialize_graph_zero)
 from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
 from phonebot.vis.viewer.viewer_base import HandleHelper
 
@@ -31,9 +31,8 @@ def main():
     # Arbitrary stamp.
     stamp = time.time()
 
-    # Initialize angles to 0.
-    # initialize_graph_zero(graph, stamp, config)
-    initialize_graph_nominal(graph, stamp, config)
+    # Initialize angles to zero.
+    initialize_graph_zero(graph, stamp, config)
 
     # Sweep angles for both joints, run ik and visualize results.
     for hip_angle_a in np.linspace(0.0, 2 * np.pi, 20):

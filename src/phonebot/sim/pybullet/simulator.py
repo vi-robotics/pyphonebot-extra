@@ -215,16 +215,16 @@ class PybulletPhonebotEnv(gym.Env):
         return builder
 
     def _index_from_joint(self, joint: str) -> int:
-        return self.builder.index_from_joint_[joint]
+        return self.builder._index_from_joint[joint]
 
     def _index_from_link(self, link: str) -> int:
-        return self.builder.index_from_link_[link]
+        return self.builder._index_from_link[link]
 
     def _joint_from_index(self, index: int) -> str:
-        return self.builder.joint_from_index_[index]
+        return self.builder._joint_from_index[index]
 
     def _link_from_index(self, index: int) -> str:
-        return self.builder.link_from_index_[index]
+        return self.builder._link_from_index[index]
 
     def start(self):
         """Start the simulator
@@ -292,10 +292,8 @@ class PybulletPhonebotEnv(gym.Env):
         servo_force = self.servo_torque / config.hip_link_length
         constraint_force = 2 * servo_force
         for prefix in config.order:
-            ia = builder.index_from_link_[
-                '{}_foot_link_a'.format(prefix)]
-            ib = builder.index_from_link_[
-                '{}_foot_link_b'.format(prefix)]
+            ia = self._index_from_link('{}_foot_link_a'.format(prefix))
+            ib = self._index_from_link('{}_foot_link_b'.format(prefix))
             c = pb.createConstraint(
                 phonebot_id, ia, phonebot_id, ib, pb.JOINT_POINT2POINT, [
                     0.0, 0.0, 1.0], [
@@ -318,7 +316,7 @@ class PybulletPhonebotEnv(gym.Env):
             # FIXME(ycho): Remove hardcoded param
             # 10.47 == 60deg/0.1sec
             for joint in config.active_joint_names:
-                index = builder.index_from_joint_[joint]
+                index = self._index_from_joint( joint )
                 pb.changeDynamics(phonebot_id, index,
                                   maxJointVelocity=10.47,
                                   physicsClientId=sim_id)
@@ -333,7 +331,7 @@ class PybulletPhonebotEnv(gym.Env):
             # constraints.
             zero = self.config.nominal_hip_angle if self.settings.zero_at_nominal else 0.0
             for joint in config.active_joint_names:
-                index = builder.index_from_joint_[joint]
+                index = self._index_from_joint( joint )
                 pb.changeDynamics(phonebot_id, index,
                                   jointLowerLimit=zero - np.pi / 2,
                                   jointUpperLimit=zero + np.pi / 2,
@@ -345,44 +343,40 @@ class PybulletPhonebotEnv(gym.Env):
                 for suffix in 'ab':
                     pb.setCollisionFilterPair(
                         phonebot_id, phonebot_id,
-                        builder.index_from_link_[
-                            '{}_hip_link_{}'.format(prefix, suffix)],
-                        builder.index_from_link_[
-                            '{}_knee_link_{}'.format(prefix, suffix)],
+                        self._index_from_link('{}_hip_link_{}'.format(prefix, suffix)),
+                        self._index_from_link('{}_knee_link_{}'.format(prefix, suffix)),
                         0, physicsClientId=sim_id)
 
                 pb.setCollisionFilterPair(
                     phonebot_id, phonebot_id,
-                    builder.index_from_link_['{}_foot_link_a'.format(prefix)],
-                    builder.index_from_link_['{}_foot_link_b'.format(prefix)],
+                    self._index_from_link( '{}_foot_link_a'.format(prefix) ),
+                    self._index_from_link( '{}_foot_link_b'.format(prefix) ),
                     0, physicsClientId=sim_id)
 
                 pb.setCollisionFilterPair(
                     phonebot_id, phonebot_id,
-                    builder.index_from_link_['{}_knee_link_a'.format(prefix)],
-                    builder.index_from_link_['{}_knee_link_b'.format(prefix)],
+                    self._index_from_link( '{}_knee_link_a'.format(prefix) ),
+                    self._index_from_link( '{}_knee_link_b'.format(prefix) ),
                     0, physicsClientId=sim_id)
 
                 pb.setCollisionFilterPair(
                     phonebot_id, phonebot_id,
-                    builder.index_from_link_['{}_knee_link_a'.format(prefix)],
-                    builder.index_from_link_['{}_foot_link_b'.format(prefix)],
+                    self._index_from_link( '{}_knee_link_a'.format(prefix) ),
+                    self._index_from_link( '{}_foot_link_b'.format(prefix) ),
                     0, physicsClientId=sim_id)
 
                 pb.setCollisionFilterPair(
                     phonebot_id, phonebot_id,
-                    builder.index_from_link_['{}_knee_link_b'.format(prefix)],
-                    builder.index_from_link_['{}_foot_link_a'.format(prefix)],
+                    self._index_from_link( '{}_knee_link_b'.format(prefix) ),
+                    self._index_from_link( '{}_foot_link_a'.format(prefix) ),
                     0, physicsClientId=sim_id)
 
                 for suffix in 'ab':
                     for s in ['{}_foot_link_{}', '{}_knee_link_{}',
                               '{}_hip_link_{}']:
                         link_name = s.format(prefix, suffix)
-                        link_a = builder.index_from_link_[
-                            '{}_leg_origin'.format(prefix)]
-                        link_b = builder.index_from_link_[
-                            link_name]
+                        link_a = self._index_from_link('{}_leg_origin'.format(prefix))
+                        link_b = self._index_from_link(link_name)
                         pb.setCollisionFilterPair(
                             phonebot_id, phonebot_id, link_a, link_b, 1,
                             physicsClientId=sim_id)
@@ -409,7 +403,7 @@ class PybulletPhonebotEnv(gym.Env):
 
             # Inertia
             if self.settings.debug_inertia:
-                for i in builder.link_from_index_.keys():
+                for i in builder._link_from_index.keys():
                     debug_draw_inertia_box(phonebot_id, i, [1, 0, 0])
 
         # Configure whether to show the default pybullet GUI.
@@ -466,15 +460,13 @@ class PybulletPhonebotEnv(gym.Env):
         # Reset joint states.
         for prefix in config.order:
             for suffix in 'ab':
-                index = builder.index_from_joint_[
-                    '{}_hip_joint_{}'.format(prefix, suffix)]
+                index = self._index_from_joint('{}_hip_joint_{}'.format(prefix, suffix))
                 pb.resetJointState(
                     phonebot_id,
                     index,
                     config.nominal_hip_angle,
                     physicsClientId=sim_id)
-                index = builder.index_from_joint_[
-                    '{}_knee_joint_{}'.format(prefix, suffix)]
+                index = self._index_from_joint('{}_knee_joint_{}'.format(prefix, suffix))
                 pb.resetJointState(
                     phonebot_id,
                     index,
@@ -529,7 +521,7 @@ class PybulletPhonebotEnv(gym.Env):
         # motors.
         if True:
             joint_friction_force = self.settings.joint_friction_force
-            all_joint_indices = [builder.index_from_joint_[joint]
+            all_joint_indices = [self._index_from_joint( joint )
                                  for joint in self.config.joint_names]
             pb.setJointMotorControlArray(
                 phonebot_id,
@@ -635,7 +627,7 @@ class PybulletPhonebotEnv(gym.Env):
         # TODO(ycho): Consider caching previous position instead.
         state0 = self.sense()
 
-        joint_indices = [builder.index_from_joint_[joint]
+        joint_indices = [self._index_from_joint( joint )
                          for joint in self.config.active_joint_names]
 
         if not self.settings.use_torque_control:
@@ -724,7 +716,7 @@ class PybulletPhonebotEnv(gym.Env):
                 self.plane_id, phonebot_id, physicsClientId=sim_id)
             for c in contacts:
                 print('{} {}'.format(self.time_index,
-                                     builder.link_from_index_[c[4]]))
+                                     self._link_from_index( c[4] )))
 
         if self.settings.render and self.settings.debug_follow_camera:
             bx, bq = pb.getBasePositionAndOrientation(

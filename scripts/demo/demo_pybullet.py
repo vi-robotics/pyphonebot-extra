@@ -19,9 +19,7 @@ from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
 from phonebot.vis.viewer.viewer_base import HandleHelper
 from phonebot.vis.viewer._pyqtgraph.pyqtgraph_handlers import LineStripHandler
 
-# from phonebot.sim.common.model import *
 from phonebot.sim.common.phonebot_model import PhonebotModel
-from phonebot.sim.pybullet.urdf_editor import export_urdf
 from phonebot.sim.pybullet.builder import PybulletBuilder
 from phonebot.sim.pybullet.simulator import PybulletPhonebotEnv, PybulletSimulatorSettings
 
