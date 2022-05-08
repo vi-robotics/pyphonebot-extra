@@ -10,30 +10,33 @@ from phonebot.core.common.math.transform import Rotation, Position, Transform
 from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.common.settings import Settings
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
-from phonebot.core.frame_graph.graph_utils import get_graph_geometries, solve_knee_angle, solve_inverse_kinematics
+from phonebot.core.frame_graph.graph_utils import (
+    get_graph_geometries, solve_knee_angle, solve_inverse_kinematics,
+    initialize_graph_nominal)
 from phonebot.core.kinematics.workspace import get_workspace
 from phonebot.core.controls.controllers.base_rotation_controller import BaseRotationController
 from phonebot.core.controls.agents.trajectory_agent import TrajectoryAgentGraph
 from phonebot.core.common.logger import set_log_level, get_default_logger
 
-from phonebot.vis.viewer import PhonebotViewer
-from phonebot.vis.viewer.proxy_commands import AddLineStripCommand
+from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
+from phonebot.vis.viewer._pyqtgraph.pyqtgraph_handlers import LineStripHandler
+from phonebot.vis.viewer.viewer_base import HandleHelper
 
 from phonebot.app.app_utils import update_settings_from_arguments
 
 
 class AppSettings(Settings):
-    """
-    App settings for Phonebot walking trajectory demonstration.
-    """
+    """App settings for Phonebot walking trajectory demonstration."""
     robot: PhonebotSettings
     acceleration: float
     log_level: str
+    show: bool
 
     def __init__(self, **kwargs):
         self.robot = PhonebotSettings()
         self.acceleration = 1.0
         self.log_level = 'WARN'
+        self.show = True
         super().__init__(**kwargs)
 
 
@@ -46,11 +49,13 @@ def main():
     config = settings.robot
 
     graph = PhonebotGraph(config)
-    data_queue, event_queue, command_queue = PhonebotViewer.create()
+    viewer = PhonebotViewer()
+    handler = HandleHelper(viewer)
 
     for leg_prefix in config.order:
-        command_queue.put(AddLineStripCommand(
-            name='{}_target'.format(leg_prefix)))
+        name = '{}_target'.format(leg_prefix)
+        viewer.register(name, LineStripHandler)
+    # viewer.start()
 
     # Initialize with current time.
     stamp = time.time() * acceleration
@@ -58,23 +63,7 @@ def main():
     #    Transform.from_position(Position([0, 0, 0.1])))
 
     # Initialize angles to nominal stance.
-    for leg_prefix in config.order:
-        leg_origin = '{}_leg_origin'.format(leg_prefix)
-        hip_joint_a = '{}_hip_joint_a'.format(leg_prefix)
-        hip_joint_b = '{}_hip_joint_b'.format(leg_prefix)
-        knee_joint_a = '{}_knee_joint_a'.format(leg_prefix)
-        knee_joint_b = '{}_knee_joint_b'.format(leg_prefix)
-        foot_a = '{}_foot_a'.format(leg_prefix)
-        foot_b = '{}_foot_b'.format(leg_prefix)
-
-        graph.get_edge(knee_joint_a, hip_joint_a).update(
-            stamp, config.nominal_hip_angle)
-        graph.get_edge(foot_a, knee_joint_a).update(
-            stamp, config.nominal_knee_angle)
-        graph.get_edge(knee_joint_b, hip_joint_b).update(
-            stamp, config.nominal_hip_angle)
-        graph.get_edge(foot_b, knee_joint_b).update(
-            stamp, config.nominal_knee_angle)
+    initialize_graph_nominal(graph, stamp, config)
 
     agent = TrajectoryAgentGraph(graph, 2.0, config)
 
@@ -168,8 +157,8 @@ def main():
         old_foot_positions = foot_positions
 
         # Send data to asynchronous viewer.
-        poses, edges = get_graph_geometries(graph, stamp, tol=np.inf)
-        if not data_queue.full():
+        if settings.show:
+            poses, edges = get_graph_geometries(graph, stamp, tol=np.inf)
             trajectory_lines = lines[-100:]
             trajectory_colors = np.broadcast_to(
                 [0, 1, 1], np.shape(trajectory_lines)).reshape(-1, 3)
@@ -181,18 +170,16 @@ def main():
             extra_colors = np.concatenate(
                 [trajectory_colors, workspace_colors], axis=0)
 
-            visdata = {
-                'poses': dict(
-                    poses=poses), 'edges': dict(
-                    poses=poses, edges=edges), 'line': dict(
-                    pos=extra_lines, color=extra_colors)}
-            for leg_prefix in config.order:
-                tag = '{}_target'.format(leg_prefix)
-                traj_points = np.asarray(target_positions[leg_prefix])
-                traj_color = (1.0, 0.0, 1.0, 1.0)
-                visdata[tag] = dict(pos=traj_points, color=traj_color)
+            with handler.collect():
+                handler.poses(poses=poses)
+                handler.edges(poses=poses, edges=edges)
+                handler.line(pos=extra_lines, color=extra_colors)
 
-            data_queue.put_nowait(visdata)
+                for leg_prefix in config.order:
+                    tag = '{}_target'.format(leg_prefix)
+                    traj_points = np.asarray(target_positions[leg_prefix])
+                    traj_color = (1.0, 0.0, 1.0, 1.0)
+                    handler[tag](pos=traj_points, color=traj_color)
 
 
 if __name__ == '__main__':

@@ -11,9 +11,10 @@ from phonebot.core.common.math.transform import Transform, Rotation
 from phonebot.core.common.math.utils import tlerp, normalize, anorm
 from phonebot.core.common.math.utils import tlerp_geodesic
 
-from phonebot.vis.viewer.proxy_command import ProxyCommand
-from phonebot.vis.viewer.proxy_commands import AddLineStripCommand, AddLinesCommand, AddAxesCommand
-from phonebot.vis.viewer import ProxyViewer
+from phonebot.vis.viewer.viewer_base import HandleHelper
+from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
+from phonebot.vis.viewer._pyqtgraph.pyqtgraph_handlers import (
+    LineStripHandler)
 
 
 def main():
@@ -22,10 +23,10 @@ def main():
     source = Transform.random()
     target = Transform.random()
 
-    data_queue, _, command_queue = ProxyViewer.create()
-    command_queue.put(AddAxesCommand('poses'))
-    command_queue.put(AddLinesCommand('edges'))
-    command_queue.put(AddLineStripCommand('path'))
+    viewer = PhonebotViewer()
+    handler = HandleHelper(viewer)
+    viewer.register('path', LineStripHandler)
+    viewer.start()
 
     path = np.zeros(shape=(num_points, 3))
     weights = np.linspace(0.0, 1.0, num=num_points)
@@ -56,12 +57,10 @@ def main():
         epos = np.reshape(epos, (-1, 3))
 
         path[index] = current.position
-        if not data_queue.full():
-            data_queue.put_nowait({
-                'poses': dict(poses=poses),
-                'edges': dict(pos=epos, color=(1, 1, 1, 1)),
-                'path': dict(pos=path[:index+1], color=(1, 1, 0, 1))
-            })
+        with handler.collect():
+            handler.poses(poses=poses)
+            handler.edges(poses=poses, edges=list(graph.edges))
+            handler.path(pos=path[:index + 1], color=(1, 1, 0, 1))
         time.sleep(0.1)
 
     # print(' Compare ... ')

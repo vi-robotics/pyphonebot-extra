@@ -17,23 +17,23 @@ from phonebot.core.common.math.utils import anorm, alerp
 from phonebot.core.common.math.transform import Rotation, Position, Transform
 from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.common.queue_listener import QueueListener
-from phonebot.vis.viewer import PhonebotViewer
-from phonebot.vis.viewer.proxy_command import ProxyCommand
-from phonebot.vis.viewer.proxy_commands import AddLineStripCommand
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph.graph_utils import get_graph_geometries, solve_knee_angle, solve_inverse_kinematics
 from phonebot.core.kinematics.workspace import get_workspace
 from phonebot.core.controls.controllers.base_rotation_controller import BaseRotationController
 
+from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
+from phonebot.vis.viewer._pyqtgraph.pyqtgraph_handlers import (
+    LineStripHandler)
+from phonebot.vis.viewer.viewer_base import HandleHelper
+
 logger = get_default_logger(logging.WARN)
 
 
-class KeyControlListener(QueueListener):
-    """
-    Simple listener remapping keys to actions controlling orientation.
-    """
+class KeyControlListener:
+    """Simple listener remapping keys to actions controlling orientation."""
 
-    def __init__(self, queue):
+    def __init__(self):
         self.key_map_ = dict(
             w=(0.01, 0.0),
             a=(0.0, -0.01),
@@ -48,10 +48,9 @@ class KeyControlListener(QueueListener):
         )
         self.quit_ = False
         self.reset()
-        super().__init__(queue, self.on_key)
 
     def on_key(self, key: str):
-        """ Handle keypress input """
+        """Handle keypress input."""
         if isinstance(key, int):
             key = chr(key).lower()
 
@@ -66,16 +65,16 @@ class KeyControlListener(QueueListener):
         self.updated_ = True
 
     def reset(self):
-        """ Unset update flag and zero out accumulant."""
+        """Unset update flag and zero out accumulant."""
         self.updated_ = False
         self.offsets_ = np.zeros(2)
 
     def has_data(self):
-        """ Whether at least one relevant user input was provided """
+        """Whether at least one relevant user input was provided."""
         return self.updated_
 
     def get(self):
-        """ Retrieve current data and reset state """
+        """Retrieve current data and reset state."""
         offsets = self.offsets_.copy()
         self.reset()
         return offsets, self.quit_
@@ -84,13 +83,14 @@ class KeyControlListener(QueueListener):
 def main():
     config = PhonebotSettings()
     graph = PhonebotGraph(config)
-    data_queue, event_queue, command_queue = PhonebotViewer.create()
+    viewer = PhonebotViewer()
+    handler = HandleHelper(viewer)
 
     for leg_prefix in config.order:
-        command_queue.put(AddLineStripCommand(
-            name='{}_workspace'.format(leg_prefix)))
-        command_queue.put(AddLineStripCommand(
-            name='{}_trajectory'.format(leg_prefix)))
+        viewer.register('{}_workspace'.format(leg_prefix), LineStripHandler)
+        viewer.register('{}_trajectory'.format(leg_prefix), LineStripHandler)
+    key_listener = KeyControlListener()
+    viewer.on_key(lambda data: key_listener.on_key(data[0]))
 
     acceleration = 1.0
     max_iter = np.inf
@@ -146,8 +146,8 @@ def main():
         plane_visuals = controller.update(plane_rotation)
 
     # plane_position = Position(controller.distance_ * controller.normal_)
-    plane_position = Position(
-        -plane_rotation.inverse().rotate(controller.distance_ * controller.normal_))
+    plane_position = Position(-plane_rotation.inverse().rotate(
+        controller.distance_ * controller.normal_))
     graph.get_edge('body', 'local').update(
         0.0, Transform(plane_position, plane_rotation))
 
@@ -162,8 +162,6 @@ def main():
     foot_positions = defaultdict(lambda: deque(maxlen=128))
     leg_colors = {k: np.random.uniform(size=3) for k in config.order}
 
-    key_listener = KeyControlListener(event_queue)
-    key_listener.start()
     iteration_count = 0
     while True:
         if iteration_count > max_iter:
@@ -183,8 +181,8 @@ def main():
             plane_rotation = Rotation.from_euler([roll, pitch,
                                                   0.0]).to_quaternion()
             plane_visuals = controller.update(plane_rotation)
-            plane_position = Position(
-                -plane_rotation.inverse().rotate(controller.distance_ * controller.normal_))
+            plane_position = Position(-plane_rotation.inverse().rotate(
+                controller.distance_ * controller.normal_))
             graph.get_edge('body', 'local').update(
                 0.0, Transform(plane_position, plane_rotation))
 
@@ -240,7 +238,7 @@ def main():
             for ps in np.reshape(plane_visuals[leg_prefix], (-1, 2, 3)):
                 p_start, p_end = [Position(p) for p in ps]
                 plane_lines.append(
-                    [body_from_leg*p_start, body_from_leg*p_end])
+                    [body_from_leg * p_start, body_from_leg * p_end])
                 plane_colors.extend(
                     [leg_colors[leg_prefix], leg_colors[leg_prefix]])
 
@@ -254,13 +252,17 @@ def main():
             source, target = shapely.ops.nearest_points(refs, cur)
             source = Position([source.x, source.y, 0.0])
             target = Position([target.x, target.y, 0.0])
-            plane_lines.append([body_from_leg * source, body_from_leg*target])
+            plane_lines.append(
+                [body_from_leg * source, body_from_leg * target])
             plane_colors.extend([[1, 0, 1], [1, 0, 1]])
 
         # Send data to asynchronous viewer.
-        poses, edges = get_graph_geometries(
-            graph, stamp, target_frame='local', tol=np.inf)
-        if not data_queue.full():
+        with handler.collect():
+            poses, edges = get_graph_geometries(
+                graph, stamp, target_frame='local', tol=np.inf)
+            handler.poses(poses=poses)
+            handler.edges(poses=poses, edges=edges)
+
             local_from_body = graph.get_transform('body', 'local', stamp)
 
             plane_lines = np.float32(plane_lines)
@@ -276,32 +278,22 @@ def main():
             extra_colors = np.concatenate(
                 [plane_colors], axis=0)
 
-            visdata = {'poses': dict(poses=poses), 'edges':
-                       dict(poses=poses, edges=edges), 'line':
-                       dict(pos=extra_lines,
-                            color=extra_colors)}
+            handler.line(pos=extra_lines, color=extra_colors)
 
             # Add workspace visualization.
             for leg_prefix in config.order:
                 tag = '{}_workspace'.format(leg_prefix)
-                visdata[tag] = dict(
+                handler[tag](
                     pos=workspace_points[leg_prefix],
                     color=(1., 1., 0., 1.))
 
             # Add endpoint trajectory.
             for leg_prefix in config.order:
                 tag = '{}_trajectory'.format(leg_prefix)
-                visdata[tag] = dict(
+                handler[tag](
                     pos=np.asarray(foot_positions[leg_prefix]),
                     color=(0., 1., 1., 1.))
-
-            data_queue.put_nowait(visdata)
 
 
 if __name__ == '__main__':
     main()
-    # prof = LineProfiler()
-    # prof.add_function(get_graph_geometries)
-    # prof.add_function(PhonebotGraph.get_transform)
-    # prof(main)()
-    # prof.print_stats()

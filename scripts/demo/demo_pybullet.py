@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
+"""Pybullet demo for a walking phonebot."""
 
 from collections import namedtuple, defaultdict, deque
 import argparse
@@ -14,12 +15,11 @@ from phonebot.core.common.config import PhonebotSettings
 from phonebot.core.frame_graph.phonebot_graph import PhonebotGraph
 from phonebot.core.frame_graph import get_graph_geometries
 from phonebot.core.frame_graph.graph_utils import update_passive_joints
-from phonebot.vis.viewer import PhonebotViewer
-from phonebot.vis.viewer.proxy_commands import AddLineStripCommand
+from phonebot.vis.viewer.phonebot_viewer import PhonebotViewer
+from phonebot.vis.viewer.viewer_base import HandleHelper
+from phonebot.vis.viewer._pyqtgraph.pyqtgraph_handlers import LineStripHandler
 
-from phonebot.sim.common.model import *
 from phonebot.sim.common.phonebot_model import PhonebotModel
-from phonebot.sim.pybullet.urdf_editor import export_urdf
 from phonebot.sim.pybullet.builder import PybulletBuilder
 from phonebot.sim.pybullet.simulator import PybulletPhonebotEnv, PybulletSimulatorSettings
 
@@ -28,9 +28,7 @@ from phonebot.app.app_utils import update_settings_from_arguments
 
 
 class AppSettings(Settings):
-    """
-    App settings for running pybullet simulator with phonebot.
-    """
+    """App settings for running pybullet simulator with phonebot."""
     sim: PybulletSimulatorSettings
     robot: PhonebotSettings
     use_viewer: bool
@@ -53,13 +51,14 @@ def main():
 
     # Optionally enable inspection through PhonebotViewer.
     if settings.use_viewer:
-        data_queue, event_queue, command_queue = PhonebotViewer.create()
+        viewer = PhonebotViewer()
+        handler = HandleHelper(viewer)
         for leg_prefix in config.order:
-            command_queue.put(AddLineStripCommand(
-                name='{}_trajectory'.format(leg_prefix)))
-        for leg_prefix in config.order:
-            command_queue.put(AddLineStripCommand(
-                name='{}_target'.format(leg_prefix)))
+            viewer.register('{}_trajectory'.format(leg_prefix),
+                            LineStripHandler)
+            viewer.register('{}_target'.format(leg_prefix),
+                            LineStripHandler)
+
         # For trajectory visualization.
         foot_positions = defaultdict(lambda: deque(maxlen=256))
         target_positions = defaultdict(lambda: deque(maxlen=128))
@@ -71,6 +70,7 @@ def main():
     env.seed(0)
     env.reset()
 
+    # NOTE(ycho): why is `1.0` here a hardcoded parameter?
     agent = TrajectoryAgentGraph(graph, 1.0, config)
     h = 0
     stamp = 0.0
@@ -119,39 +119,39 @@ def main():
         # TODO(ycho): Refactor out common visualization utilities.
         if settings.use_viewer:
             poses, edges = get_graph_geometries(graph, stamp, tol=np.inf)
-            visdata = {'poses': dict(poses=poses), 'edges': dict(
-                poses=poses, edges=edges)}
+            with handler.collect():
+                handler.poses(poses=poses)
+                handler.edges(poses=poses, edges=edges)
 
-            for leg_prefix in config.order:
-                foot_joint = '{}_foot_a'.format(leg_prefix)
-                foot_positions[leg_prefix].append(
-                    graph.get_transform(foot_joint, 'local', stamp).position)
+                # Collect current foot positions.
+                for leg_prefix in config.order:
+                    foot_joint = '{}_foot_a'.format(leg_prefix)
+                    foot_positions[leg_prefix].append(
+                        graph.get_transform(
+                            foot_joint, 'local', stamp).position)
 
-            for leg_prefix in config.order:
-                # Compute target foot position on local frame.
-                target_foot_leg_origin = agent.trajectories_[
-                    leg_prefix].evaluate(stamp)
-                target_foot_local = graph.get_transform(
-                    '{}_leg_origin'.format(leg_prefix),
-                    'local', stamp) * target_foot_leg_origin
+                # Compute target foot positions, on local frame.
+                for leg_prefix in config.order:
+                    target_foot_leg_origin = agent.trajectories_[
+                        leg_prefix].evaluate(stamp)
+                    target_foot_local = graph.get_transform(
+                        '{}_leg_origin'.format(leg_prefix),
+                        'local', stamp) * target_foot_leg_origin
 
-                # Append to trajectories.
-                target_positions[leg_prefix].append(target_foot_local)
+                    # Append to trajectories.
+                    target_positions[leg_prefix].append(target_foot_local)
 
-            for leg_prefix in config.order:
-                tag = '{}_trajectory'.format(leg_prefix)
-                traj_points = np.asarray(foot_positions[leg_prefix])
-                traj_color = (0.0, 1.0, 1.0, 1.0)
-                visdata[tag] = dict(pos=traj_points, color=traj_color)
+                for leg_prefix in config.order:
+                    tag = '{}_trajectory'.format(leg_prefix)
+                    traj_points = np.asarray(foot_positions[leg_prefix])
+                    traj_color = (0.0, 1.0, 1.0, 1.0)
+                    handler[tag](pos=traj_points, color=traj_color)
 
-            for leg_prefix in config.order:
-                tag = '{}_target'.format(leg_prefix)
-                traj_points = np.asarray(target_positions[leg_prefix])
-                traj_color = (1.0, 1.0, 0.0, 1.0)
-                visdata[tag] = dict(pos=traj_points, color=traj_color)
-
-            if not data_queue.full():
-                data_queue.put_nowait(visdata)
+                for leg_prefix in config.order:
+                    tag = '{}_target'.format(leg_prefix)
+                    traj_points = np.asarray(target_positions[leg_prefix])
+                    traj_color = (1.0, 1.0, 0.0, 1.0)
+                    handler[tag](pos=traj_points, color=traj_color)
     env.close()
 
 

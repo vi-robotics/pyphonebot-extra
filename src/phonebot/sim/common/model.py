@@ -1,4 +1,5 @@
-from __future__ import annotations
+# NOTE(ycho): this locks python version to >=3.7
+# from __future__ import annotations 
 from abc import abstractmethod
 from enum import IntEnum
 from numbers import Number
@@ -317,7 +318,7 @@ class ModelInertia():
         self.pose = pose
 
     @classmethod
-    def from_geometry(cls, mass: Number, geom: ModelGeometry) -> ModelInertia:
+    def from_geometry(cls, mass: Number, geom: ModelGeometry) -> 'ModelInertia':
         """Create a ModelInertia instance using the inertia from an existing
         geometry.
 
@@ -333,7 +334,7 @@ class ModelInertia():
         return cls.from_matrix(imat)
 
     @classmethod
-    def from_matrix(cls, imat: np.ndarray) -> ModelInertia:
+    def from_matrix(cls, imat: np.ndarray) -> 'ModelInertia':
         """Create a ModelInertia instance from an inertia matrix
 
         Args:
